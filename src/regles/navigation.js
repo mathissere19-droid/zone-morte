@@ -94,3 +94,15 @@ export function trouverChemin(g, de, vers) {
   }
   return chemin.reverse();
 }
+
+// Vrai si aucune case bloquée entre a et b (échantillonnage tous les quarts de case)
+export function ligneLibre(g, a, b) {
+  const d = Math.hypot(b.x - a.x, b.z - a.z);
+  const n = Math.max(1, Math.ceil(d / (g.taille / 4)));
+  for (let k = 0; k <= n; k++) {
+    const t = k / n;
+    const [i, j] = caseDe(g, { x: a.x + (b.x - a.x) * t, z: a.z + (b.z - a.z) * t });
+    if (g.bloque[j * g.nx + i]) return false;
+  }
+  return true;
+}

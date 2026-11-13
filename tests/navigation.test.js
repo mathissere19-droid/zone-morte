@@ -40,3 +40,11 @@ test('départ dans un obstacle : case libre la plus proche', () => {
   marquerObstacles(g, [{ minX: -1, maxX: 1, minZ: -1, maxZ: 1 }]);
   assert.ok(trouverChemin(g, { x: 0, z: 0 }, { x: 4, z: 4 }));
 });
+
+test('ligne de vue sur la grille', async () => {
+  const { ligneLibre } = await import('../src/regles/navigation.js');
+  const g = creerGrille({ minX: -5, minZ: -5, largeur: 10, profondeur: 10 });
+  marquerObstacles(g, [{ minX: -0.5, maxX: 0.5, minZ: -5, maxZ: 3 }]);
+  assert.equal(ligneLibre(g, { x: -3, z: 0 }, { x: 3, z: 0 }), false);
+  assert.equal(ligneLibre(g, { x: -3, z: 4 }, { x: 3, z: 4 }), true);
+});

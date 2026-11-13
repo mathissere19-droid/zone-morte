@@ -1,7 +1,10 @@
 import * as THREE from 'three';
 import { construireCarte, majCarte } from './carte.js';
 import { creerJoueur, finImageEntrees } from './joueur.js';
-import { creerGrille, marquerObstacles } from './regles/navigation.js';
+import { creerGrille, marquerObstacles, ligneLibre } from './regles/navigation.js';
+import { creerGestionnaireZombies } from './zombies.js';
+import { creerPartie, majPartie, peutFaireApparaitre, enregistrerApparition, choisirPointApparition } from './regles/partie.js';
+import { subir, majVie, estMort } from './regles/vie.js';
 
 const conteneur = document.getElementById('jeu');
 const modeTest = new URLSearchParams(location.search).has('test');
@@ -30,6 +33,25 @@ marquerObstacles(grille, carte.navObstacles);
 carte.surChangement = () => marquerObstacles(grille, carte.navObstacles);
 
 const joueur = creerJoueur(camera, renderer.domElement);
+const zombies = creerGestionnaireZombies(scene, carte, grille);
+let partie = creerPartie();
+let delaiApparition = 0;
+const frustum = new THREE.Frustum();
+const matriceVue = new THREE.Matrix4();
+const pointTest = new THREE.Vector3();
+
+function pointVisible(pt) {
+  matriceVue.multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse);
+  frustum.setFromProjectionMatrix(matriceVue);
+  pointTest.set(pt.x, 1, pt.z);
+  return frustum.containsPoint(pointTest) && ligneLibre(grille, joueur.position, pt);
+}
+
+function pointsApparitionActifs() {
+  const r = [];
+  for (const z of Object.values(carte.zones)) if (z.debloquee) r.push(...z.pointsApparition);
+  return r;
+}
 joueur.placer(carte.depart.x, carte.depart.z);
 
 addEventListener('resize', () => {
@@ -39,7 +61,8 @@ addEventListener('resize', () => {
 });
 
 const jeu = {
-  etat: 'menu', scene, camera, renderer, modeTest, carte, grille, joueur,
+  etat: 'menu', scene, camera, renderer, modeTest, carte, grille, joueur, zombies,
+  get partie() { return partie; },
   vitesseTemps: 1,
   accelerer(f) { this.vitesseTemps = f; },
   demarrerPartie,
@@ -50,6 +73,8 @@ const $ = (id) => document.getElementById(id);
 
 function demarrerPartie() {
   joueur.placer(carte.depart.x, carte.depart.z);
+  zombies.vider();
+  partie = creerPartie();
   jeu.etat = 'partie';
   $('ecran-menu').classList.add('cache');
   $('hud').classList.remove('cache');
@@ -58,11 +83,29 @@ function demarrerPartie() {
 
 $('btn-jouer').addEventListener('click', demarrerPartie);
 
+function finDePartie() {
+  jeu.etat = 'fin';
+  joueur.controles.unlock();
+  $('hud').classList.add('cache');
+  $('ecran-fin').classList.remove('cache');
+}
+
 function boucle(dt) {
   dt = Math.min(dt, 0.1) * jeu.vitesseTemps;
   majCarte(carte, dt);
   if (jeu.etat === 'partie') {
     joueur.majJoueur(dt, carte.aabbs);
+    majVie(joueur.vie, dt);
+    majPartie(partie, dt);
+    delaiApparition -= dt;
+    if (delaiApparition <= 0 && peutFaireApparaitre(partie)) {
+      const pt = choisirPointApparition(pointsApparitionActifs(), joueur.position, pointVisible, Math.random);
+      zombies.faireApparaitre(pt, partie.vague);
+      enregistrerApparition(partie);
+      delaiApparition = 0.35;
+    }
+    zombies.majZombies(dt, joueur, (degats) => subir(joueur.vie, degats));
+    if (estMort(joueur.vie)) finDePartie();
   }
   finImageEntrees();
   renderer.render(scene, camera);
