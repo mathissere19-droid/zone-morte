@@ -83,3 +83,43 @@ scenarios.push({
     verifier(await page.evaluate(() => !window.__jeu.carte.portes[0].ouverte && !window.__jeu.carte.zones.hangar.debloquee), 'Rejouer referme les portes');
   },
 });
+scenarios.push({
+  nom: 'pause quand l\'onglet est caché',
+  async executer(page, verifier, attendre) {
+    await page.evaluate(() => { window.__jeu.demarrerPartie(); window.__jeu.joueur.vie.pv = 1e9; });
+    await attendre(300);
+    await page.evaluate(() => {
+      Object.defineProperty(document, 'hidden', { configurable: true, get: () => true });
+      document.dispatchEvent(new Event('visibilitychange'));
+    });
+    const t1 = await page.evaluate(() => window.__jeu.partie.temps);
+    await attendre(1000);
+    const r = await page.evaluate(() => ({ etat: window.__jeu.etat, t: window.__jeu.partie.temps, ecran: !document.getElementById('ecran-pause').classList.contains('cache') }));
+    verifier(r.etat === 'pause' && r.ecran, 'état pause et écran de pause affiché');
+    verifier(r.t === t1, 'le temps de partie est figé pendant la pause');
+    await page.evaluate(() => {
+      Object.defineProperty(document, 'hidden', { configurable: true, get: () => false });
+      window.__jeu.reprendre();
+    });
+    await attendre(200);
+    verifier(await page.evaluate(() => window.__jeu.etat) === 'partie', 'reprise de la partie');
+  },
+});
+scenarios.push({
+  nom: 'mort du joueur, écran de fin et record',
+  async executer(page, verifier, attendre) {
+    await page.evaluate(() => { localStorage.removeItem('zoneMorte.record'); window.__jeu.partie.vague = 3; window.__jeu.joueur.vie.pv = 0; });
+    await attendre(300);
+    const r = await page.evaluate(() => ({
+      etat: window.__jeu.etat,
+      ecran: !document.getElementById('ecran-fin').classList.contains('cache'),
+      record: localStorage.getItem('zoneMorte.record'),
+      texte: document.getElementById('record-fin').textContent,
+    }));
+    verifier(r.etat === 'fin' && r.ecran, 'écran de fin affiché');
+    verifier(r.record === '3' && r.texte.includes('Nouveau record'), 'record de la vague 3 enregistré');
+    await page.evaluate(() => document.getElementById('btn-rejouer').click());
+    await attendre(300);
+    verifier(await page.evaluate(() => window.__jeu.etat === 'partie' && window.__jeu.partie.vague === 0 && window.__jeu.portefeuille.points === 500), 'Rejouer relance une partie neuve');
+  },
+});

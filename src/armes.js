@@ -35,6 +35,7 @@ function modeleArme(id) {
 export function creerArmes({ camera, scene, inventaire, cibles, obstacles, joueur, surTouche, surJoueurTouche, surExplosionVisuelle }) {
   const support = new THREE.Group();
   camera.add(support);
+  support.scale.setScalar(0.75);
   const modeles = {};
   let modeleCourant = null, idCourant = null;
 
