@@ -1,58 +1,46 @@
+// Zone Morte — assemblage et boucle de jeu.
 import * as THREE from 'three';
-import { construireCarte, majCarte } from './carte.js';
-import { creerJoueur, finImageEntrees } from './joueur.js';
+import { CONFIG } from './config.js';
+import { construireCarte, majCarte, ouvrirPorte, fermerPortes } from './carte.js';
+import { creerJoueur, entrees, finImageEntrees } from './joueur.js';
 import { creerGrille, marquerObstacles, ligneLibre } from './regles/navigation.js';
 import { creerGestionnaireZombies } from './zombies.js';
-import { creerPartie, majPartie, peutFaireApparaitre, enregistrerApparition, choisirPointApparition } from './regles/partie.js';
+import { creerArmes } from './armes.js';
+import { creerBonus, NOMS_BONUS } from './bonus.js';
+import { creerInterface } from './interface.js';
+import {
+  creerPartie, majPartie, peutFaireApparaitre, enregistrerApparition, enregistrerMort,
+  tirerBonus, choisirPointApparition,
+} from './regles/partie.js';
 import { subir, majVie, estMort } from './regles/vie.js';
+import { creerPortefeuille, gainCoup, crediter, payer, tirageCaisse, acheterMur } from './regles/economie.js';
+import { creerInventaire, armeActive, ajouterArme, remplirTout } from './regles/inventaire.js';
 
-const conteneur = document.getElementById('jeu');
 const modeTest = new URLSearchParams(location.search).has('test');
+const ui = creerInterface();
+const $ = (id) => document.getElementById(id);
 
-const renderer = new THREE.WebGLRenderer({ antialias: true });
+// ---------- Rendu ----------
+let renderer;
+try {
+  renderer = new THREE.WebGLRenderer({ antialias: true });
+} catch (e) {
+  ui.ecranErreur("Votre navigateur ne peut pas afficher la 3D (WebGL). Activez l'accélération matérielle dans les paramètres de Chrome ou Edge, puis rechargez la page.");
+  throw e;
+}
 renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
 renderer.setSize(innerWidth, innerHeight);
-renderer.shadowMap.enabled = false;
-conteneur.appendChild(renderer.domElement);
+$('jeu').appendChild(renderer.domElement);
 
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x0b0f1a);
 scene.fog = new THREE.FogExp2(0x0b0f1a, 0.03);
-
-const camera = new THREE.PerspectiveCamera(75, innerWidth / innerHeight, 0.05, 200);
+const camera = new THREE.PerspectiveCamera(75, innerWidth / innerHeight, 0.03, 200);
 scene.add(camera);
-
 scene.add(new THREE.HemisphereLight(0x5a6a8a, 0x1a1a1a, 0.7));
 const lune = new THREE.DirectionalLight(0x8899cc, 0.6);
 lune.position.set(-20, 40, 10);
 scene.add(lune);
-
-const carte = construireCarte(scene);
-const grille = creerGrille({ minX: -18, minZ: -36, largeur: 54, profondeur: 54, taille: 0.5 });
-marquerObstacles(grille, carte.navObstacles);
-carte.surChangement = () => marquerObstacles(grille, carte.navObstacles);
-
-const joueur = creerJoueur(camera, renderer.domElement);
-const zombies = creerGestionnaireZombies(scene, carte, grille);
-let partie = creerPartie();
-let delaiApparition = 0;
-const frustum = new THREE.Frustum();
-const matriceVue = new THREE.Matrix4();
-const pointTest = new THREE.Vector3();
-
-function pointVisible(pt) {
-  matriceVue.multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse);
-  frustum.setFromProjectionMatrix(matriceVue);
-  pointTest.set(pt.x, 1, pt.z);
-  return frustum.containsPoint(pointTest) && ligneLibre(grille, joueur.position, pt);
-}
-
-function pointsApparitionActifs() {
-  const r = [];
-  for (const z of Object.values(carte.zones)) if (z.debloquee) r.push(...z.pointsApparition);
-  return r;
-}
-joueur.placer(carte.depart.x, carte.depart.z);
 
 addEventListener('resize', () => {
   camera.aspect = innerWidth / innerHeight;
@@ -60,43 +48,218 @@ addEventListener('resize', () => {
   renderer.setSize(innerWidth, innerHeight);
 });
 
+// ---------- Monde ----------
+const carte = construireCarte(scene);
+const grille = creerGrille({ minX: -18, minZ: -36, largeur: 54, profondeur: 54, taille: 0.5 });
+marquerObstacles(grille, carte.navObstacles);
+carte.surChangement = () => marquerObstacles(grille, carte.navObstacles);
+
+const joueur = creerJoueur(camera, renderer.domElement);
+const zombies = creerGestionnaireZombies(scene, carte, grille);
+const bonus = creerBonus(scene);
+
+let partie, portefeuille, inventaire, doubles = 0, delaiApparition = 0;
+inventaire = creerInventaire();
+
+const armes = creerArmes({
+  camera, scene, inventaire, joueur,
+  cibles: () => zombies.cibles(),
+  obstacles: () => carte.obstaclesVisibles,
+  surTouche: toucherZombie,
+  surJoueurTouche: (d) => blesserJoueur(d),
+  surExplosionVisuelle: explosionVisuelle,
+});
+
+// ---------- Record ----------
+const CLE_RECORD = 'zoneMorte.record';
+function lireRecord() {
+  try { return Number(localStorage.getItem(CLE_RECORD)) || 0; } catch { return 0; }
+}
+function ecrireRecord(v) {
+  try { localStorage.setItem(CLE_RECORD, String(v)); } catch { /* stockage indisponible */ }
+}
+
+// ---------- Combat ----------
+function toucherZombie(z, degats, { tete, couteau }) {
+  if (jeu.etat !== 'partie' || z.mort) return;
+  const mortel = zombies.infliger(z, degats);
+  const gain = gainCoup({ mortel, tete, couteau }, doubles > 0);
+  crediter(portefeuille, gain);
+  partie.pointsGagnes += gain;
+  if (mortel) {
+    enregistrerMort(partie, { tete });
+    if (tirerBonus(partie, Math.random)) bonus.lacher(z.position);
+  }
+}
+
+function blesserJoueur(degats) {
+  subir(joueur.vie, degats);
+  ui.flashDegats();
+}
+
+const explosions = [];
+function explosionVisuelle(pos) {
+  const m = new THREE.Mesh(new THREE.SphereGeometry(1, 16, 12), new THREE.MeshBasicMaterial({ color: 0xffa040, transparent: true, opacity: 0.9 }));
+  m.position.copy(pos);
+  const l = new THREE.PointLight(0xff8030, 40, 15, 2);
+  l.position.copy(pos);
+  scene.add(m, l);
+  explosions.push({ m, l, t: 0.4 });
+}
+
+function appliquerBonus(type) {
+  ui.annonce(NOMS_BONUS[type], 2);
+  if (type === 'munitions') remplirTout(inventaire);
+  if (type === 'doubles') doubles = CONFIG.bonus.pointsDoublesDuree;
+  if (type === 'explosion') {
+    for (const z of zombies.tuerTous()) enregistrerMort(partie, { tete: false });
+    crediter(portefeuille, CONFIG.bonus.explosionPoints);
+    partie.pointsGagnes += CONFIG.bonus.explosionPoints;
+    explosionVisuelle(new THREE.Vector3(joueur.position.x, 1.5, joueur.position.z));
+  }
+}
+
+// ---------- Interactions (E) ----------
+function interactionProche() {
+  const p = joueur.position;
+  const d = (v) => Math.hypot(v.x - p.x, v.z - p.z);
+  let meilleur = null, dMin = 2.2;
+  for (const m of carte.mursArmes) if (d(m.position) < dMin) { dMin = d(m.position); meilleur = { type: 'mur', m }; }
+  for (const porte of carte.portes) {
+    if (porte.ouverte) continue;
+    for (const s of porte.segments) if (d(s) < dMin) { dMin = d(s); meilleur = { type: 'porte', porte }; }
+  }
+  if (d(carte.caisse.position) < dMin) meilleur = { type: 'caisse' };
+  return meilleur;
+}
+
+const NOMS_ZONES = { hangar: 'le hangar', bunker: 'le bunker', tour: 'la tour radio' };
+function texteInvite(i) {
+  if (!i) return null;
+  if (i.type === 'mur') {
+    const nom = CONFIG.armes[i.m.armeId].nom, prix = CONFIG.prixMurs[i.m.armeId];
+    return inventaire.armes.some((a) => a.id === i.m.armeId)
+      ? `E — Munitions ${nom} (${Math.floor(prix / 2)})` : `E — Acheter ${nom} (${prix})`;
+  }
+  if (i.type === 'porte') return `E — Ouvrir ${NOMS_ZONES[i.porte.id]} (${i.porte.prix})`;
+  return `E — Caisse de ravitaillement (${CONFIG.caisse.prix})`;
+}
+
+function interagir() {
+  const i = interactionProche();
+  if (!i) return;
+  if (i.type === 'mur') {
+    const r = acheterMur(portefeuille, inventaire, i.m.armeId);
+    if (r === 'pas-assez') ui.message('Pas assez de points');
+    else if (r === 'plein') ui.message('Munitions déjà pleines');
+  } else if (i.type === 'porte') {
+    if (payer(portefeuille, i.porte.prix)) ouvrirPorte(carte, i.porte);
+    else ui.message('Pas assez de points');
+  } else if (payer(portefeuille, CONFIG.caisse.prix)) {
+    const id = tirageCaisse(Math.random, inventaire.armes.map((a) => a.id));
+    ajouterArme(inventaire, id);
+    ui.annonce(CONFIG.armes[id].nom, 2);
+  } else ui.message('Pas assez de points');
+}
+
+// ---------- Apparitions ----------
+const frustum = new THREE.Frustum();
+const matriceVue = new THREE.Matrix4();
+const pointTest = new THREE.Vector3();
+function pointVisible(pt) {
+  matriceVue.multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse);
+  frustum.setFromProjectionMatrix(matriceVue);
+  pointTest.set(pt.x, 1, pt.z);
+  return frustum.containsPoint(pointTest) && ligneLibre(grille, joueur.position, pt);
+}
+function pointsApparitionActifs() {
+  const r = [];
+  for (const z of Object.values(carte.zones)) if (z.debloquee) r.push(...z.pointsApparition);
+  return r;
+}
+
+// ---------- États de jeu ----------
 const jeu = {
-  etat: 'menu', scene, camera, renderer, modeTest, carte, grille, joueur, zombies,
+  etat: 'menu', scene, camera, renderer, modeTest, carte, grille, joueur, zombies, bonus, armes,
   get partie() { return partie; },
+  get portefeuille() { return portefeuille; },
+  get inventaire() { return inventaire; },
   vitesseTemps: 1,
   accelerer(f) { this.vitesseTemps = f; },
-  demarrerPartie,
+  demarrerPartie, mettreEnPause, reprendre,
+  tirer: () => armes.tirForce(),
+  interagir,
 };
 window.__jeu = jeu;
 
-const $ = (id) => document.getElementById(id);
-
 function demarrerPartie() {
-  joueur.placer(carte.depart.x, carte.depart.z);
+  // remise à zéro complète (Rejouer sans recharger la page)
   zombies.vider();
+  bonus.vider();
+  fermerPortes(carte);
   partie = creerPartie();
+  portefeuille = creerPortefeuille();
+  inventaire = creerInventaire();
+  armes.reinitialiser(inventaire);
+  doubles = 0;
+  joueur.placer(carte.depart.x, carte.depart.z);
+  ui.reinitialiserPoints();
+  ui.masquerEcrans();
   jeu.etat = 'partie';
-  $('ecran-menu').classList.add('cache');
-  $('hud').classList.remove('cache');
   if (!modeTest) joueur.verrouiller();
 }
 
-$('btn-jouer').addEventListener('click', demarrerPartie);
+function mettreEnPause() {
+  if (jeu.etat !== 'partie') return;
+  jeu.etat = 'pause';
+  entrees.gauche = entrees.droite = false;
+  ui.ecranPause();
+}
+
+function reprendre() {
+  if (jeu.etat !== 'pause') return;
+  jeu.etat = 'partie';
+  ui.masquerEcrans();
+  if (!modeTest) joueur.verrouiller();
+}
 
 function finDePartie() {
   jeu.etat = 'fin';
   joueur.controles.unlock();
-  $('hud').classList.add('cache');
-  $('ecran-fin').classList.remove('cache');
+  const record = lireRecord();
+  const nouveau = partie.vague > record;
+  if (nouveau) ecrireRecord(partie.vague);
+  ui.ecranFin(partie, Math.max(record, partie.vague), nouveau);
 }
 
-function boucle(dt) {
-  dt = Math.min(dt, 0.1) * jeu.vitesseTemps;
+$('btn-jouer').addEventListener('click', demarrerPartie);
+$('btn-rejouer').addEventListener('click', demarrerPartie);
+$('btn-reprendre').addEventListener('click', reprendre);
+$('btn-abandon').addEventListener('click', () => { jeu.etat = 'partie'; finDePartie(); });
+joueur.controles.addEventListener('unlock', () => mettreEnPause());
+document.addEventListener('visibilitychange', () => { if (document.hidden) mettreEnPause(); });
+addEventListener('blur', () => mettreEnPause());
+ui.ecranMenu(lireRecord());
+
+// ---------- Boucle ----------
+function boucle(dtBrut) {
+  const dt = Math.min(dtBrut, 0.1) * jeu.vitesseTemps;
   majCarte(carte, dt);
+  ui.maj(dt);
+
+  for (let i = explosions.length - 1; i >= 0; i--) {
+    const e = explosions[i];
+    e.t -= dt;
+    e.m.scale.setScalar(1 + (0.4 - e.t) * 10);
+    e.m.material.opacity = Math.max(0, e.t / 0.4);
+    e.l.intensity = Math.max(0, e.t * 100);
+    if (e.t <= 0) { scene.remove(e.m, e.l); explosions.splice(i, 1); }
+  }
+
   if (jeu.etat === 'partie') {
     joueur.majJoueur(dt, carte.aabbs);
     majVie(joueur.vie, dt);
-    majPartie(partie, dt);
+    if (majPartie(partie, dt) === 'vagueCommence') ui.annonce('VAGUE ' + partie.vague, 3);
     delaiApparition -= dt;
     if (delaiApparition <= 0 && peutFaireApparaitre(partie)) {
       const pt = choisirPointApparition(pointsApparitionActifs(), joueur.position, pointVisible, Math.random);
@@ -104,7 +267,23 @@ function boucle(dt) {
       enregistrerApparition(partie);
       delaiApparition = 0.35;
     }
-    zombies.majZombies(dt, joueur, (degats) => subir(joueur.vie, degats));
+    zombies.majZombies(dt, joueur, (d) => blesserJoueur(d));
+    armes.majArmes(dt, true);
+    bonus.majBonus(dt, joueur, appliquerBonus);
+    doubles = Math.max(0, doubles - dt);
+
+    const i = interactionProche();
+    ui.invite(texteInvite(i));
+    if (entrees.appuis.has('KeyE')) interagir();
+
+    const a = armeActive(inventaire);
+    ui.majHUD({
+      pv: joueur.vie.pv, vieMax: CONFIG.joueur.vieMax,
+      munitions: { nom: CONFIG.armes[a.id].nom, chargeur: a.chargeur, reserve: a.reserve },
+      points: portefeuille.points, vague: partie.vague, doubles,
+      stamina: joueur.stamina, staminaMax: CONFIG.joueur.staminaMax,
+      dispersion: armes.dispersion * (joueur.vise ? 0.4 : 1), enRechargement: armes.enRechargement,
+    });
     if (estMort(joueur.vie)) finDePartie();
   }
   finImageEntrees();

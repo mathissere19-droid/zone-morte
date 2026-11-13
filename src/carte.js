@@ -48,7 +48,7 @@ export function construireCarte(scene) {
     portes: [],
     mursArmes: [],
     caisse: null,
-    depart: { x: -2, z: 4 },
+    depart: { x: -5, z: 5 },
     obstaclesVisibles: [],
     lumieresVacillantes: [],
     surChangement: null,
@@ -97,11 +97,12 @@ export function construireCarte(scene) {
   }
 
   function porte(id, segments, debloque) {
-    const p = { id, prix: CONFIG.prixPortes[id], aabbs: [], meshes: [], ouverte: false, debloque, position: new THREE.Vector3() };
+    const p = { id, prix: CONFIG.prixPortes[id], aabbs: [], meshes: [], ouverte: false, debloque, position: new THREE.Vector3(), parent: groupe, solides: [] };
     for (const s of segments) {
       const { mesh, aabb } = boite(s.minX, s.maxX, s.minZ, s.maxZ, 0, 2.6, mats.porte);
       p.aabbs.push(aabb);
       p.meshes.push(mesh);
+      p.solides.push(mesh);
       // bandes noires de signalisation
       for (let i = 0; i < 3; i++) {
         const bande = new THREE.Mesh(new THREE.BoxGeometry(
@@ -261,6 +262,21 @@ export function ouvrirPorte(carte, porte) {
     }
   }
   for (const z of porte.debloque) carte.zones[z].debloquee = true;
+  carte.surChangement?.();
+}
+
+// Remet la carte dans son état de départ (nouvelle partie)
+export function fermerPortes(carte) {
+  for (const porte of carte.portes) {
+    if (!porte.ouverte) continue;
+    porte.ouverte = false;
+    for (const m of porte.meshes) porte.parent.add(m);
+    carte.obstaclesVisibles.push(...porte.solides);
+    carte.aabbs.push(...porte.aabbs);
+    carte.aabbsZombies.push(...porte.aabbs);
+    carte.navObstacles.push(...porte.aabbs);
+  }
+  for (const [nom, z] of Object.entries(carte.zones)) z.debloquee = nom === 'cour';
   carte.surChangement?.();
 }
 
