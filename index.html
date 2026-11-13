@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Zone Morte</title>
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="style.css">
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "./vendor/three/three.module.js",
+        "three/addons/": "./vendor/three/addons/"
+      }
+    }
+  </script>
+</head>
+<body>
+  <div id="jeu"></div>
+
+  <div id="hud" class="cache">
+    <div id="viseur"><span></span><span></span><span></span><span></span></div>
+    <div id="degats"></div>
+    <div id="vague">1</div>
+    <div id="vie"><div id="vie-barre"></div></div>
+    <div id="stamina"><div id="stamina-barre"></div></div>
+    <div id="points"><span id="points-valeur">500</span><div id="points-gains"></div></div>
+    <div id="doubles" class="cache">x2 <span></span></div>
+    <div id="munitions"><div id="arme-nom">Pistolet</div><div><span id="chargeur">8</span> / <span id="reserve">32</span></div></div>
+    <div id="invite" class="cache"></div>
+    <div id="message" class="cache"></div>
+    <div id="annonce" class="cache"></div>
+  </div>
+
+  <div id="ecran-menu" class="ecran">
+    <h1>ZONE MORTE</h1>
+    <p class="sous-titre">Base militaire — secteur 7</p>
+    <button id="btn-jouer">Jouer</button>
+    <p id="record-menu"></p>
+    <div class="touches">
+      <b>ZQSD</b> se déplacer · <b>Souris</b> viser · <b>Clic</b> tirer · <b>Clic droit</b> viser<br>
+      <b>Maj</b> sprint · <b>Espace</b> sauter · <b>R</b> recharger · <b>E</b> acheter / ouvrir<br>
+      <b>V</b> couteau · <b>1 2 / molette</b> changer d'arme · <b>Échap</b> pause
+    </div>
+  </div>
+
+  <div id="ecran-pause" class="ecran cache">
+    <h1>PAUSE</h1>
+    <button id="btn-reprendre">Reprendre</button>
+    <button id="btn-abandon" class="secondaire">Abandonner la partie</button>
+  </div>
+
+  <div id="ecran-fin" class="ecran cache">
+    <h1>VOUS ÊTES MORT</h1>
+    <div id="stats"></div>
+    <p id="record-fin"></p>
+    <button id="btn-rejouer">Rejouer</button>
+  </div>
+
+  <div id="ecran-erreur" class="ecran cache"><h1>Problème</h1><p id="erreur-texte"></p></div>
+
+  <script type="module" src="src/main.js"></script>
+</body>
+</html>
