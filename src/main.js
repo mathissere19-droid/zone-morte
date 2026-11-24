@@ -85,6 +85,7 @@ marquerObstacles(grille, carte.navObstacles);
 carte.surChangement = () => marquerObstacles(grille, carte.navObstacles);
 
 const joueur = creerJoueur(camera, renderer.domElement);
+joueur.surChute = (d) => blesserJoueur(d, { brut: true });
 const zombies = creerGestionnaireZombies(scene, carte, grille);
 const bonus = creerBonus(scene);
 
@@ -319,7 +320,7 @@ function boucle(dtBrut) {
   effets.maj(dt);
 
   if (jeu.etat === 'partie') {
-    joueur.majJoueur(dt, carte.aabbs);
+    joueur.majJoueur(dt, carte);
     majVie(joueur.vie, dt, difficulteActive().delaiRegen);
     if (majPartie(partie, dt) === 'vagueCommence') {
       ui.annonce('VAGUE ' + partie.vague, 3);
@@ -333,7 +334,7 @@ function boucle(dtBrut) {
       delaiApparition = 0.35;
     }
     zombies.majZombies(dt, joueur, (d) => blesserJoueur(d), (z, d) => toucherZombie(z, d, { brulure: true }), replacerZombie);
-    armes.majArmes(dt, true);
+    armes.majArmes(dt, !joueur.occupe);
     bonus.majBonus(dt, joueur, appliquerBonus);
     doubles = Math.max(0, doubles - dt);
 
@@ -348,7 +349,7 @@ function boucle(dtBrut) {
       munitions: { nom: CONFIG.armes[a.id].nom, chargeur: a.chargeur, reserve: a.reserve }, grenades: inventaire.grenades,
       points: portefeuille.points, vague: partie.vague, restants: zombiesRestants(partie), doubles,
       stamina: joueur.stamina, staminaMax: CONFIG.joueur.staminaMax,
-      dispersion: armes.dispersion * (joueur.vise ? 0.4 : 1), enRechargement: armes.enRechargement,
+      dispersion: armes.dispersion * (joueur.vise ? 0.4 : 1) * (joueur.accroupi ? CONFIG.joueur.accroupi.dispersion : 1), enRechargement: armes.enRechargement,
     });
     if (estMort(joueur.vie)) finDePartie();
   }

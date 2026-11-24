@@ -84,3 +84,7 @@ test('peutSeRelever : non sous le conduit, oui à côté', () => {
   assert.equal(peutSeRelever([conduit], { x: 22, z: -9.1 }, 0.35, 0), false);
   assert.equal(peutSeRelever([conduit], { x: 19, z: -9.1 }, 0.35, 0), true);
 });
+test('trouverRebord : ignore une surface non grimpable (sous le plafond du bunker)', () => {
+  const k = boite('k', 0, 2, 0, 2, 1.2, { grimpable: false });
+  assert.equal(trouverRebord([k], { x: -0.4, z: 1 }, { x: 1, z: 0 }, 0), null);
+});

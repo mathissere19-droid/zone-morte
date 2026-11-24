@@ -453,3 +453,98 @@ scenarios.push({
     verifier(disparue, 'la fumée se dissipe');
   },
 });
+
+// ---------- Lot 2 : accroupi, escalade, échelles ----------
+// attend n images du jeu (le temps réel ne dit rien en rendu logiciel)
+const images = (page, n) => page.evaluate((n) => new Promise((ok) => {
+  let k = 0; const f = () => (++k >= n ? ok() : requestAnimationFrame(f)); requestAnimationFrame(f);
+}), n);
+const nouvellePartie = (page, x, z, lacet) => page.evaluate(([x, z, lacet]) => {
+  const j = window.__jeu;
+  j.demarrerPartie('soldat'); j.partie.chrono = 1e9; j.joueur.vie.pv = 1e9; j.zombies.vider();
+  j.entrees.touches.clear();
+  j.joueur.placer(x, z); j.camera.rotation.set(0, lacet, 0, 'YXZ');
+}, [x, z, lacet]);
+const touche = (page, code, tenue = true) => page.evaluate(([c, t]) => {
+  const e = window.__jeu.entrees; e.appuis.add(c); if (t) e.touches.add(c); else e.touches.delete(c);
+}, [code, tenue]);
+const relacher = (page, code) => page.evaluate((c) => window.__jeu.entrees.touches.delete(c), code);
+const OUEST = Math.PI / 2, EST = -Math.PI / 2;
+
+scenarios.push({
+  nom: 'accroupi (C)',
+  async executer(page, verifier) {
+    await nouvellePartie(page, -5, 5, 0);
+    await touche(page, 'KeyC', false);
+    await page.waitForFunction(() => window.__jeu.joueur.accroupi === true, null, { timeout: 10000 }).catch(() => {});
+    const ok = await page.waitForFunction(() => window.__jeu.camera.position.y - window.__jeu.joueur.position.y < 1.05,
+      null, { timeout: 20000 }).then(() => true, () => false);
+    verifier(ok, 'accroupi : yeux à 1 m');
+    await touche(page, 'KeyC', false);
+    await page.waitForFunction(() => !window.__jeu.joueur.accroupi, null, { timeout: 10000 }).catch(() => {});
+  },
+});
+scenarios.push({
+  nom: 'conduit du bunker : accroupi seulement',
+  async executer(page, verifier) {
+    await nouvellePartie(page, 20.3, -9.1, EST);
+    await page.evaluate(async () => { const C = await import('/src/carte.js'); for (const p of window.__jeu.carte.portes) C.ouvrirPorte(window.__jeu.carte, p); });
+    await page.evaluate(() => window.__jeu.joueur.placer(20.3, -9.1));
+    await page.evaluate(() => window.__jeu.camera.rotation.set(0, -Math.PI / 2, 0, 'YXZ'));
+    await touche(page, 'KeyW');
+    await page.waitForFunction(() => window.__jeu.joueur.position.x > 20.6, null, { timeout: 20000 }).catch(() => {});
+    await images(page, 10);
+    const debout = await page.evaluate(() => window.__jeu.joueur.position.x);
+    verifier(debout < 21, `debout : bloqué devant le conduit (x=${debout.toFixed(2)})`);
+    await touche(page, 'KeyC');
+    await relacher(page, 'KeyC');
+    const passe = await page.waitForFunction(() => window.__jeu.joueur.position.x > 23.3, null, { timeout: 30000 }).then(() => true, () => false);
+    await relacher(page, 'KeyW');
+    verifier(passe, 'accroupi : passe par le conduit');
+    await page.evaluate(() => window.__jeu.joueur.placer(22, -9.1));
+    await touche(page, 'KeyC', false); // placer remet debout... on se baisse dans le conduit
+    await images(page, 3);
+    await page.evaluate(() => { const j = window.__jeu.joueur; j.accroupi = true; });
+    await touche(page, 'KeyC', false);
+    await images(page, 5);
+    verifier(await page.evaluate(() => window.__jeu.joueur.accroupi) === true, 'impossible de se relever dans le conduit');
+  },
+});
+scenarios.push({
+  nom: 'grimper sur un conteneur (saut + Espace tenu)',
+  async executer(page, verifier) {
+    await nouvellePartie(page, -12, 9, OUEST);
+    await touche(page, 'Space');
+    const monte = await page.waitForFunction(() => window.__jeu.joueur.position.y > 2.5, null, { timeout: 20000 }).then(() => true, () => false);
+    await relacher(page, 'Space');
+    await page.waitForFunction(() => !window.__jeu.joueur.occupe, null, { timeout: 10000 }).catch(() => {});
+    const r = await page.evaluate(() => ({ y: window.__jeu.joueur.position.y, h: window.__jeu.joueur.surface?.h }));
+    verifier(monte && r.h === 2.6, `sur le conteneur (${JSON.stringify(r)})`);
+  },
+});
+scenarios.push({
+  nom: 'échelle du toit du bunker',
+  async executer(page, verifier) {
+    await nouvellePartie(page, 12.6, 12.5, EST);
+    await touche(page, 'KeyW');
+    const ok = await page.waitForFunction(() => window.__jeu.joueur.position.y > 2.8 && window.__jeu.joueur.position.x > 14,
+      null, { timeout: 30000 }).then(() => true, () => false);
+    await relacher(page, 'KeyW');
+    const p = await page.evaluate(() => window.__jeu.joueur.position);
+    verifier(ok, `sur le toit du bunker (${p.x.toFixed(2)}, ${p.y.toFixed(2)})`);
+  },
+});
+scenarios.push({
+  nom: 'grenade lâchée sur un conteneur',
+  async executer(page, verifier) {
+    await nouvellePartie(page, -13.8, 9, 0);
+    await page.evaluate(() => {
+      const j = window.__jeu; j.joueur.position.y = 2.6; j.joueur.majCamera(); j.armes.vider();
+      j.camera.rotation.set(-1.45, 0, 0, 'YXZ');
+    });
+    await touche(page, 'KeyG', false);
+    await page.waitForFunction(() => window.__jeu.armes.derniereExplosion, null, { timeout: 20000 });
+    const e = await page.evaluate(() => window.__jeu.armes.derniereExplosion);
+    verifier(e.y > 2.5 && e.y < 3, `explosion posée sur le toit du conteneur (y=${e.y.toFixed(2)})`);
+  },
+});

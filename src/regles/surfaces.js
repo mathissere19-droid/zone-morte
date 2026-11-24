@@ -43,7 +43,7 @@ export function trouverRebord(surfaces, pos, dir, yPieds) {
   const E = CONFIG.escalade;
   let meilleur = null, tMin = Infinity;
   for (const s of surfaces) {
-    if (s.pente || contient(s, pos.x, pos.z)) continue;
+    if (s.pente || s.grimpable === false || contient(s, pos.x, pos.z)) continue;
     const d = s.h - yPieds;
     if (d < E.rebordMin || d > E.rebordMax) continue;
     const t = entree(s, pos, dir);

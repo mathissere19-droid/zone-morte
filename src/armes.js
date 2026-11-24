@@ -171,7 +171,7 @@ export function creerArmes({ camera, scene, effets, inventaire, cibles, obstacle
     const a = armeActive(etat.inventaire);
     const def = CONFIG.armes[a.id];
     if (!tirer(etat.inventaire)) return false;
-    const visee = joueur.vise ? 0.4 : 1;
+    const visee = (joueur.vise ? 0.4 : 1) * (joueur.accroupi ? CONFIG.joueur.accroupi.dispersion : 1);
     const mouvement = joueur.enMouvement ? 1.5 : 1;
     const disp = def.dispersion * visee * mouvement + etat.dispersionActuelle;
 
@@ -262,7 +262,12 @@ export function creerArmes({ camera, scene, effets, inventaire, cibles, obstacle
         raycaster.far = l + 0.06;
         const h = raycaster.intersectObjects([...cibles(), ...obstacles()], false)[0];
         raycaster.far = 120;
-        if (h) { g.v.x *= -0.3; g.v.z *= -0.3; if (g.v.y > 0) g.v.y *= -0.3; } // rebond contre un obstacle
+        if (h) {
+          // rebond : on avance jusqu'au contact, puis vitesse réfléchie sur la face touchée et amortie
+          g.m.position.addScaledVector(pas, Math.max(0, h.distance - 0.07) / l);
+          const n = h.face ? h.face.normal.clone().transformDirection(h.object.matrixWorld) : pas.clone().negate().normalize();
+          g.v.addScaledVector(n, -2 * g.v.dot(n)).multiplyScalar(0.3);
+        }
         else g.m.position.add(pas);
       }
       const sol = hauteurSol(g.m.position.x, g.m.position.z, g.m.position.y) + 0.06;
