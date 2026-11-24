@@ -10,7 +10,7 @@ import { creerBonus, NOMS_BONUS } from './bonus.js';
 import { creerInterface } from './interface.js';
 import {
   creerPartie, majPartie, peutFaireApparaitre, enregistrerApparition, enregistrerMort,
-  tirerBonus, choisirPointApparition,
+  tirerBonus, choisirPointApparition, zombiesRestants,
 } from './regles/partie.js';
 import { subir, majVie, estMort } from './regles/vie.js';
 import { IDS_DIFFICULTE, choisirDifficulte, difficulteActive, degatsRecus } from './regles/difficulte.js';
@@ -127,6 +127,7 @@ function explosionVisuelle(pos) {
 function appliquerBonus(type) {
   ui.annonce(NOMS_BONUS[type], 2);
   if (type === 'munitions') remplirTout(inventaire);
+  if (type === 'soin') joueur.vie.pv = CONFIG.joueur.vieMax;
   if (type === 'doubles') doubles = CONFIG.bonus.pointsDoublesDuree;
   if (type === 'explosion') {
     for (const z of zombies.tuerTous()) enregistrerMort(partie, { tete: false });
@@ -307,7 +308,7 @@ function boucle(dtBrut) {
     ui.majHUD({
       pv: joueur.vie.pv, vieMax: CONFIG.joueur.vieMax,
       munitions: { nom: CONFIG.armes[a.id].nom, chargeur: a.chargeur, reserve: a.reserve }, grenades: inventaire.grenades,
-      points: portefeuille.points, vague: partie.vague, doubles,
+      points: portefeuille.points, vague: partie.vague, restants: zombiesRestants(partie), doubles,
       stamina: joueur.stamina, staminaMax: CONFIG.joueur.staminaMax,
       dispersion: armes.dispersion * (joueur.vise ? 0.4 : 1), enRechargement: armes.enRechargement,
     });

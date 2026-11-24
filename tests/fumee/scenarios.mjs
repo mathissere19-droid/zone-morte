@@ -280,3 +280,24 @@ scenarios.push({
     verifier(p && p.x > -17.8 && p.y >= -0.01 && p.y < 3, 'explosion du bon côté du mur et au sol (' + JSON.stringify(p) + ')');
   },
 });
+scenarios.push({
+  nom: 'compteur de zombies restants et trousse de soin',
+  async executer(page, verifier, attendre) {
+    await page.evaluate(() => {
+      const j = window.__jeu; j.demarrerPartie('soldat'); j.partie.chrono = 0.01;
+    });
+    await page.waitForFunction(() => window.__jeu.partie.vague === 1, null, { timeout: 10000 });
+    await attendre(200);
+    const t1 = await page.evaluate(() => document.getElementById('vague').textContent);
+    verifier(t1.includes('10 zombies restants'), 'compteur au début de la vague 1 (' + t1 + ')');
+    await page.waitForFunction(() => window.__jeu.zombies.liste.some((z) => !z.mort), null, { timeout: 10000 });
+    await page.evaluate(() => { const j = window.__jeu; const z = j.zombies.liste.find((o) => !o.mort); j.toucherZombie(z, 1e9, {}); });
+    await attendre(200);
+    const t2 = await page.evaluate(() => document.getElementById('vague').textContent);
+    verifier(t2.includes('9 zombies restants'), 'compteur après un kill (' + t2 + ')');
+    await page.evaluate(() => { const j = window.__jeu; j.zombies.vider(); j.joueur.vie.pv = 20; j.joueur.vie.depuisCoup = 0; j.bonus.lacher(j.joueur.position, 'soin'); });
+    await attendre(400);
+    const pv = await page.evaluate(() => window.__jeu.joueur.vie.pv);
+    verifier(pv === 100, 'trousse de soin : vie pleine (' + pv + ')');
+  },
+});

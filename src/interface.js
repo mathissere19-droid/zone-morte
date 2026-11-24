@@ -12,7 +12,7 @@ export function creerInterface() {
   }
 
   return {
-    majHUD({ pv, vieMax, munitions, grenades, points, vague, doubles, stamina, staminaMax, dispersion, enRechargement }) {
+    majHUD({ pv, vieMax, munitions, grenades, points, vague, restants, doubles, stamina, staminaMax, dispersion, enRechargement }) {
       $('vie-barre').style.width = (100 * pv / vieMax) + '%';
       $('stamina-barre').style.width = (100 * stamina / staminaMax) + '%';
       $('stamina').style.opacity = stamina < staminaMax ? 1 : 0.25;
@@ -24,7 +24,8 @@ export function creerInterface() {
       $('points-valeur').textContent = points;
       if (dernierPoints !== null && points > dernierPoints) this.gain(points - dernierPoints);
       dernierPoints = points;
-      $('vague').textContent = vague > 0 ? vague : '';
+      $('vague').textContent = vague <= 0 ? ''
+        : restants > 0 ? `VAGUE ${vague} · ${restants} zombie${restants > 1 ? 's' : ''} restant${restants > 1 ? 's' : ''}` : `VAGUE ${vague}`;
       $('doubles').classList.toggle('cache', !(doubles > 0));
       if (doubles > 0) $('doubles').querySelector('span').textContent = Math.ceil(doubles) + ' s';
       $('viseur').style.setProperty('--e', (6 + dispersion * 400).toFixed(1) + 'px');

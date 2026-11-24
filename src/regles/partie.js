@@ -59,3 +59,8 @@ export function choisirPointApparition(points, joueur, estVisible, rng) {
   if (choix.length) return choix[Math.min(Math.floor(rng() * choix.length), choix.length - 1)];
   return points.reduce((a, b) => (dist(b) > dist(a) ? b : a));
 }
+
+// Zombies qu'il reste à tuer dans la vague en cours (0 pendant la pause).
+export function zombiesRestants(p) {
+  return p.phase === 'combat' ? p.restants + p.vivants : 0;
+}

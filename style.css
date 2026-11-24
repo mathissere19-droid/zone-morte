@@ -14,7 +14,7 @@ html, body { margin: 0; height: 100%; overflow: hidden; background: #05070c; col
 #viseur span:nth-child(4) { width: 8px; height: 2px; top: -1px; left: var(--e); }
 #degats { position: absolute; inset: 0; opacity: 0; transition: opacity .15s;
   background: radial-gradient(ellipse at center, transparent 45%, rgba(150,0,0,.85) 100%); }
-#vague { position: absolute; left: 34px; bottom: 70px; font: 900 64px/1 Georgia, serif; color: #9b0f0f;
+#vague { position: absolute; left: 50%; top: 18px; transform: translateX(-50%); white-space: nowrap; font: 900 26px/1 Georgia, serif; color: #c41a1a; letter-spacing: 2px;
   text-shadow: 0 0 12px rgba(200,0,0,.5), 2px 2px 0 #000; }
 #vie, #stamina { position: absolute; left: 34px; width: 220px; background: rgba(0,0,0,.5); border: 1px solid rgba(255,255,255,.2); }
 #vie { bottom: 44px; height: 10px; } #stamina { bottom: 30px; height: 5px; }

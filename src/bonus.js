@@ -1,10 +1,10 @@
-// Bonus lâchés par les zombies : munitions max, points doubles, explosion.
+// Bonus lâchés par les zombies : munitions max, points doubles, explosion, trousse de soin.
 import * as THREE from 'three';
 import { CONFIG } from './config.js';
 
-const TYPES = ['munitions', 'doubles', 'explosion'];
-const COULEURS = { munitions: 0x7fd36b, doubles: 0x66ccff, explosion: 0xff5a2a };
-export const NOMS_BONUS = { munitions: 'Munitions max', doubles: 'Points doubles', explosion: 'Explosion' };
+const TYPES = ['munitions', 'doubles', 'explosion', 'soin'];
+const COULEURS = { munitions: 0x7fd36b, doubles: 0x66ccff, explosion: 0xff5a2a, soin: 0x40ff70 };
+export const NOMS_BONUS = { munitions: 'Munitions max', doubles: 'Points doubles', explosion: 'Explosion', soin: 'Trousse de soin' };
 
 export function creerBonus(scene) {
   const liste = [];
@@ -12,9 +12,14 @@ export function creerBonus(scene) {
   function lacher(position, type = TYPES[Math.floor(Math.random() * TYPES.length)]) {
     const g = new THREE.Group();
     const mat = new THREE.MeshStandardMaterial({ color: COULEURS[type], emissive: COULEURS[type], emissiveIntensity: 1.2 });
-    const forme = type === 'munitions' ? new THREE.BoxGeometry(0.4, 0.3, 0.3)
-      : type === 'doubles' ? new THREE.OctahedronGeometry(0.28) : new THREE.IcosahedronGeometry(0.26);
-    g.add(new THREE.Mesh(forme, mat));
+    if (type === 'soin') { // croix
+      g.add(new THREE.Mesh(new THREE.BoxGeometry(0.42, 0.13, 0.13), mat));
+      g.add(new THREE.Mesh(new THREE.BoxGeometry(0.13, 0.42, 0.13), mat));
+    } else {
+      const forme = type === 'munitions' ? new THREE.BoxGeometry(0.4, 0.3, 0.3)
+        : type === 'doubles' ? new THREE.OctahedronGeometry(0.28) : new THREE.IcosahedronGeometry(0.26);
+      g.add(new THREE.Mesh(forme, mat));
+    }
     const l = new THREE.PointLight(COULEURS[type], 4, 5, 2);
     g.add(l);
     g.position.set(position.x, (position.y ?? 0) + 1, position.z);

@@ -68,3 +68,15 @@ test('point d\'apparition : loin et invisible en priorité, sinon le plus éloig
   const proches = [{ x: 1, z: 0 }, { x: 3, z: 0 }];
   assert.deepEqual(choisirPointApparition(proches, joueur, () => true, () => 0), { x: 3, z: 0 });
 });
+
+test('zombies restants : à faire apparaître + vivants, 0 en pause', async () => {
+  const { zombiesRestants } = await import('../src/regles/partie.js');
+  const p = creerPartie();
+  assert.equal(zombiesRestants(p), 0);
+  p.vague = 4; p.chrono = 0;
+  majPartie(p, 0.01);
+  assert.equal(zombiesRestants(p), 30);
+  enregistrerApparition(p);
+  enregistrerMort(p, { tete: false });
+  assert.equal(zombiesRestants(p), 29);
+});
