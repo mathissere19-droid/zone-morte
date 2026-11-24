@@ -13,6 +13,7 @@ import {
   tirerBonus, choisirPointApparition,
 } from './regles/partie.js';
 import { subir, majVie, estMort } from './regles/vie.js';
+import { IDS_DIFFICULTE, choisirDifficulte, difficulteActive, degatsRecus } from './regles/difficulte.js';
 import { creerPortefeuille, gainCoup, crediter, payer, tirageCaisse, acheterMur } from './regles/economie.js';
 import { creerInventaire, armeActive, ajouterArme, remplirTout } from './regles/inventaire.js';
 
@@ -66,17 +67,31 @@ const armes = creerArmes({
   cibles: () => zombies.cibles(),
   obstacles: () => carte.obstaclesVisibles,
   surTouche: toucherZombie,
-  surJoueurTouche: (d) => blesserJoueur(d),
+  surJoueurTouche: (d) => blesserJoueur(d, { brut: true }),
   surExplosionVisuelle: explosionVisuelle,
 });
 
 // ---------- Record ----------
+// Un record par difficulté ; l'ancien record (avant les difficultés) compte pour Soldat.
 const CLE_RECORD = 'zoneMorte.record';
-function lireRecord() {
-  try { return Number(localStorage.getItem(CLE_RECORD)) || 0; } catch { return 0; }
+const CLE_DIFFICULTE = 'zoneMorte.difficulte';
+function lireRecord(id) {
+  try {
+    const v = Number(localStorage.getItem(CLE_RECORD + '.' + id)) || 0;
+    return id === 'soldat' ? Math.max(v, Number(localStorage.getItem(CLE_RECORD)) || 0) : v;
+  } catch { return 0; }
 }
-function ecrireRecord(v) {
-  try { localStorage.setItem(CLE_RECORD, String(v)); } catch { /* stockage indisponible */ }
+function ecrireRecord(id, v) {
+  try { localStorage.setItem(CLE_RECORD + '.' + id, String(v)); } catch { /* stockage indisponible */ }
+}
+let difficulteChoisie = 'soldat';
+try { if (IDS_DIFFICULTE.includes(localStorage.getItem(CLE_DIFFICULTE))) difficulteChoisie = localStorage.getItem(CLE_DIFFICULTE); } catch { /* idem */ }
+function selectionnerDifficulte(id) {
+  difficulteChoisie = IDS_DIFFICULTE.includes(id) ? id : 'soldat';
+  try { localStorage.setItem(CLE_DIFFICULTE, difficulteChoisie); } catch { /* idem */ }
+}
+function afficherMenu() {
+  ui.ecranMenu(Object.fromEntries(IDS_DIFFICULTE.map((id) => [id, lireRecord(id)])), difficulteChoisie);
 }
 
 // ---------- Combat ----------
@@ -92,8 +107,9 @@ function toucherZombie(z, degats, { tete, couteau }) {
   }
 }
 
-function blesserJoueur(degats) {
-  subir(joueur.vie, degats);
+// brut : dégâts que le joueur s'inflige lui-même (explosions), non modifiés par la difficulté
+function blesserJoueur(degats, { brut = false } = {}) {
+  subir(joueur.vie, brut ? degats : degatsRecus(degats));
   ui.flashDegats();
 }
 
@@ -186,14 +202,16 @@ const jeu = {
   get inventaire() { return inventaire; },
   vitesseTemps: 1,
   accelerer(f) { this.vitesseTemps = f; },
-  demarrerPartie, mettreEnPause, reprendre,
+  demarrerPartie, mettreEnPause, reprendre, afficherMenu,
   tirer: () => armes.tirForce(),
   interagir,
 };
 window.__jeu = jeu;
 
-function demarrerPartie() {
+function demarrerPartie(idDifficulte) {
   // remise à zéro complète (Rejouer sans recharger la page)
+  if (typeof idDifficulte === 'string') selectionnerDifficulte(idDifficulte);
+  choisirDifficulte(difficulteChoisie);
   zombies.vider();
   bonus.vider();
   fermerPortes(carte);
@@ -226,20 +244,24 @@ function reprendre() {
 function finDePartie() {
   jeu.etat = 'fin';
   joueur.controles.unlock();
-  const record = lireRecord();
+  const d = difficulteActive();
+  const record = lireRecord(d.id);
   const nouveau = partie.vague > record;
-  if (nouveau) ecrireRecord(partie.vague);
-  ui.ecranFin(partie, Math.max(record, partie.vague), nouveau);
+  if (nouveau) ecrireRecord(d.id, partie.vague);
+  ui.ecranFin(partie, Math.max(record, partie.vague), nouveau, d.nom);
 }
 
-$('btn-jouer').addEventListener('click', demarrerPartie);
-$('btn-rejouer').addEventListener('click', demarrerPartie);
+$('btn-jouer').addEventListener('click', () => demarrerPartie());
+$('btn-rejouer').addEventListener('click', () => demarrerPartie());
+for (const b of document.querySelectorAll('#choix-difficulte button')) {
+  b.addEventListener('click', () => { selectionnerDifficulte(b.dataset.difficulte); afficherMenu(); });
+}
 $('btn-reprendre').addEventListener('click', reprendre);
 $('btn-abandon').addEventListener('click', () => { jeu.etat = 'partie'; finDePartie(); });
 joueur.controles.addEventListener('unlock', () => mettreEnPause());
 document.addEventListener('visibilitychange', () => { if (document.hidden) mettreEnPause(); });
 addEventListener('blur', () => mettreEnPause());
-ui.ecranMenu(lireRecord());
+afficherMenu();
 
 // ---------- Boucle ----------
 function boucle(dtBrut) {
@@ -258,7 +280,7 @@ function boucle(dtBrut) {
 
   if (jeu.etat === 'partie') {
     joueur.majJoueur(dt, carte.aabbs);
-    majVie(joueur.vie, dt);
+    majVie(joueur.vie, dt, difficulteActive().delaiRegen);
     if (majPartie(partie, dt) === 'vagueCommence') ui.annonce('VAGUE ' + partie.vague, 3);
     delaiApparition -= dt;
     if (delaiApparition <= 0 && peutFaireApparaitre(partie)) {

@@ -108,12 +108,12 @@ scenarios.push({
 scenarios.push({
   nom: 'mort du joueur, écran de fin et record',
   async executer(page, verifier, attendre) {
-    await page.evaluate(() => { localStorage.removeItem('zoneMorte.record'); window.__jeu.partie.vague = 3; window.__jeu.joueur.vie.pv = 0; });
+    await page.evaluate(() => { localStorage.removeItem('zoneMorte.record'); localStorage.removeItem('zoneMorte.record.soldat'); window.__jeu.partie.vague = 3; window.__jeu.joueur.vie.pv = 0; });
     await attendre(300);
     const r = await page.evaluate(() => ({
       etat: window.__jeu.etat,
       ecran: !document.getElementById('ecran-fin').classList.contains('cache'),
-      record: localStorage.getItem('zoneMorte.record'),
+      record: localStorage.getItem('zoneMorte.record.soldat'),
       texte: document.getElementById('record-fin').textContent,
     }));
     verifier(r.etat === 'fin' && r.ecran, 'écran de fin affiché');
@@ -136,5 +136,29 @@ scenarios.push({
       return out;
     });
     verifier(coinces.length === 0, "aucun point d'apparition dans un obstacle (" + coinces.join(', ') + ')');
+  },
+});
+scenarios.push({
+  nom: 'difficulté : Cauchemar et Recrue, records par niveau',
+  async executer(page, verifier, attendre) {
+    const r = await page.evaluate(() => {
+      const j = window.__jeu;
+      localStorage.removeItem('zoneMorte.record.soldat');
+      localStorage.setItem('zoneMorte.record', '7');
+      j.demarrerPartie('cauchemar');
+      j.partie.chrono = 1e9;
+      const z = j.zombies.faireApparaitre({ x: 0, z: 0 }, 1);
+      const c = { points: j.portefeuille.points, reserve: j.inventaire.armes[0].reserve, pv: z.pv };
+      j.zombies.vider();
+      j.demarrerPartie('recrue');
+      const rec = { points: j.portefeuille.points };
+      j.afficherMenu();
+      const txt = document.querySelector('[data-difficulte="soldat"] .record-diff').textContent;
+      return { c, rec, txt };
+    });
+    verifier(r.c.points === 250 && r.c.reserve === 24 && r.c.pv === 240, 'Cauchemar : 250 pts, réserve 24, zombie 240 PV (' + JSON.stringify(r.c) + ')');
+    verifier(r.rec.points === 1000, 'Recrue : 1000 pts');
+    verifier(r.txt.includes('7'), 'ancien record repris en Soldat (' + r.txt + ')');
+    await page.evaluate(() => { localStorage.removeItem('zoneMorte.record'); window.__jeu.demarrerPartie('soldat'); });
   },
 });

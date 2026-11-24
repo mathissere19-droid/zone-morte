@@ -1,7 +1,8 @@
 // Zombies : apparence (jalon 1 : formes simples), IA de déplacement, attaque, mort.
 import * as THREE from 'three';
 import { CONFIG } from './config.js';
-import { pvZombie, typeDeplacement } from './regles/vagues.js';
+import { typeDeplacement } from './regles/vagues.js';
+import { pvZombieActif, difficulteActive } from './regles/difficulte.js';
 import { deplacer } from './regles/collisions.js';
 import { trouverChemin, ligneLibre } from './regles/navigation.js';
 import { hauteurSol } from './carte.js';
@@ -45,13 +46,13 @@ export function creerGestionnaireZombies(scene, carte, grille) {
   let compteur = 0;
 
   function faireApparaitre(point, vague, rng = Math.random) {
-    const type = typeDeplacement(vague, rng);
+    const type = typeDeplacement(vague, rng, difficulteActive().premiereVagueCoureurs);
     const m = construireModele(rng);
     const z = {
       id: compteur++,
       modele: m,
       position: { x: point.x, y: hauteurSol(point.x, point.z), z: point.z },
-      pv: pvZombie(vague),
+      pv: pvZombieActif(vague),
       type,
       vitesse: VITESSES[type] * (0.9 + rng() * 0.2),
       chemin: null, iChemin: 0,

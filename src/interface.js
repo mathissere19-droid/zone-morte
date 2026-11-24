@@ -57,13 +57,19 @@ export function creerInterface() {
       if ((minuteurAnnonce -= dt) <= 0) $('annonce').classList.add('cache');
       flash = Math.max(0, flash - dt * 2);
     },
-    ecranMenu(record) {
+    // records : { idDifficulte: meilleure vague }
+    ecranMenu(records, idChoisi) {
       montrer('ecran-menu');
-      $('record-menu').textContent = record > 0 ? 'Record : vague ' + record : '';
+      for (const b of document.querySelectorAll('#choix-difficulte button')) {
+        const id = b.dataset.difficulte;
+        b.classList.toggle('choisi', id === idChoisi);
+        b.querySelector('.record-diff').textContent = records[id] > 0 ? 'Record : vague ' + records[id] : '';
+      }
     },
     ecranPause() { montrer('ecran-pause'); $('hud').classList.remove('cache'); },
-    ecranFin(stats, record, nouveauRecord) {
+    ecranFin(stats, record, nouveauRecord, nomDifficulte) {
       montrer('ecran-fin');
+      $('difficulte-fin').textContent = 'Difficulté : ' + nomDifficulte;
       const m = Math.floor(stats.temps / 60), s = Math.floor(stats.temps % 60);
       $('stats').innerHTML =
         `Vague atteinte : <b>${stats.vague}</b><br>Zombies tués : <b>${stats.kills}</b>` +
