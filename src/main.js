@@ -95,10 +95,11 @@ function afficherMenu() {
 }
 
 // ---------- Combat ----------
-function toucherZombie(z, degats, { tete, couteau }) {
+function toucherZombie(z, degats, { tete = false, couteau = false, brulure = false } = {}) {
   if (jeu.etat !== 'partie' || z.mort) return;
   const mortel = zombies.infliger(z, degats);
-  const gain = gainCoup({ mortel, tete, couteau }, doubles > 0);
+  // une touche de brûlure non mortelle ne rapporte rien
+  const gain = brulure && !mortel ? 0 : gainCoup({ mortel, tete, couteau }, doubles > 0);
   crediter(portefeuille, gain);
   partie.pointsGagnes += gain;
   if (mortel) {
@@ -202,7 +203,7 @@ const jeu = {
   get inventaire() { return inventaire; },
   vitesseTemps: 1,
   accelerer(f) { this.vitesseTemps = f; },
-  demarrerPartie, mettreEnPause, reprendre, afficherMenu,
+  demarrerPartie, mettreEnPause, reprendre, afficherMenu, toucherZombie,
   tirer: () => armes.tirForce(),
   interagir,
 };
@@ -289,7 +290,7 @@ function boucle(dtBrut) {
       enregistrerApparition(partie);
       delaiApparition = 0.35;
     }
-    zombies.majZombies(dt, joueur, (d) => blesserJoueur(d));
+    zombies.majZombies(dt, joueur, (d) => blesserJoueur(d), (z, d) => toucherZombie(z, d, { brulure: true }));
     armes.majArmes(dt, true);
     bonus.majBonus(dt, joueur, appliquerBonus);
     doubles = Math.max(0, doubles - dt);

@@ -198,3 +198,53 @@ scenarios.push({
     verifier(ch.length === 2, 'tirs avec les 5 armes sans erreur (' + ch.join(' ') + ')');
   },
 });
+scenarios.push({
+  nom: 'brûlure : tue et compte la mort',
+  async executer(page, verifier, attendre) {
+    await page.evaluate(async () => {
+      const j = window.__jeu; const P = await import('/src/regles/partie.js'); const C = await import('/src/regles/combat.js');
+      j.demarrerPartie('soldat'); j.partie.chrono = 1e9; j.partie.phase = 'combat'; j.partie.restants = 0;
+      const z = j.zombies.faireApparaitre({ x: -2, z: -4 }, 1);
+      z.emergence = 0; z.vitesse = 0;
+      P.enregistrerApparition(j.partie); j.partie.restants = 0;
+      C.enflammer(z, 1000, 3);
+      window.__brule = z;
+    });
+    await attendre(1000);
+    const r = await page.evaluate(() => ({ mort: window.__brule.mort, vivants: window.__jeu.partie.vivants, kills: window.__jeu.partie.kills }));
+    verifier(r.mort && r.vivants === 0 && r.kills === 1, 'mort par brûlure comptée (' + JSON.stringify(r) + ')');
+  },
+});
+scenarios.push({
+  nom: 'fusil électrique : l\'éclair saute entre zombies',
+  async executer(page, verifier, attendre) {
+    await page.evaluate(async () => {
+      const j = window.__jeu; const I = await import('/src/regles/inventaire.js');
+      j.demarrerPartie('soldat'); j.partie.chrono = 1e9;
+      j.joueur.placer(-2, 4); j.camera.rotation.set(0, 0, 0);
+      window.__cibles = [-2, -5, -8].map((z) => { const o = j.zombies.faireApparaitre({ x: -2 + (z === -2 ? 0 : 1.5), z }, 1); o.emergence = 0; o.vitesse = 0; o.pv = 5000; return o; });
+      I.ajouterArme(j.inventaire, 'electrique');
+    });
+    await attendre(500);
+    await page.evaluate(() => { window.__jeu.camera.rotation.set(-0.06, 0, 0); window.__jeu.tirer(); });
+    await attendre(100);
+    const n = await page.evaluate(() => window.__cibles.filter((z) => z.pv < 5000).length);
+    verifier(n >= 2, 'au moins 2 zombies touchés par l\'éclair (' + n + ')');
+  },
+});
+scenarios.push({
+  nom: 'lance-flammes : enflamme les zombies devant',
+  async executer(page, verifier, attendre) {
+    await page.evaluate(async () => {
+      const j = window.__jeu; const I = await import('/src/regles/inventaire.js');
+      j.zombies.vider(); j.joueur.placer(-2, 4); j.camera.rotation.set(0, 0, 0);
+      window.__f = j.zombies.faireApparaitre({ x: -2, z: 0 }, 1); window.__f.emergence = 0; window.__f.vitesse = 0; window.__f.pv = 5000;
+      I.ajouterArme(j.inventaire, 'lanceFlammes');
+    });
+    await attendre(500);
+    await page.evaluate(() => window.__jeu.tirer());
+    await attendre(300);
+    const r = await page.evaluate(() => ({ pv: window.__f.pv, brule: !!(window.__f.brulure && window.__f.brulure.t > 0) }));
+    verifier(r.pv < 5000 && r.brule, 'zombie touché et en feu (' + JSON.stringify(r) + ')');
+  },
+});

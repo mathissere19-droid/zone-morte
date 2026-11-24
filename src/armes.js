@@ -3,13 +3,13 @@ import * as THREE from 'three';
 import { CONFIG } from './config.js';
 import { entrees } from './joueur.js';
 import { armeActive, tirer, peutRecharger, recharger, changer } from './regles/inventaire.js';
-import { degatsTir, degatsCouteau, degatsExplosion, degatsExplosionJoueur } from './regles/combat.js';
+import { degatsTir, degatsCouteau, degatsExplosion, degatsExplosionJoueur, dansCone, chaineElectrique, degatsChaine, enflammer } from './regles/combat.js';
 
 const TAILLES = {
   pistolet: [0.06, 0.12, 0.22], mitraillette: [0.07, 0.12, 0.4], pompe: [0.07, 0.1, 0.7],
   assaut: [0.07, 0.13, 0.65], precision: [0.07, 0.13, 0.9], mitrailleuse: [0.1, 0.16, 0.8], lanceGrenades: [0.12, 0.12, 0.5],
   revolver: [0.06, 0.13, 0.26], pmCompact: [0.06, 0.12, 0.3], semiAuto: [0.07, 0.13, 0.85], pompeAuto: [0.09, 0.13, 0.7],
-  arbalete: [0.08, 0.08, 0.6],
+  arbalete: [0.08, 0.08, 0.6], lanceFlammes: [0.11, 0.14, 0.7], electrique: [0.09, 0.14, 0.6],
 };
 const matArme = new THREE.MeshStandardMaterial({ color: 0x2a2b2d, roughness: 0.5, metalness: 0.7 });
 const matRare = new THREE.MeshStandardMaterial({ color: 0x8a6a20, roughness: 0.35, metalness: 0.9 });
@@ -59,6 +59,11 @@ export function creerArmes({ camera, scene, inventaire, cibles, obstacles, joueu
   };
   const impacts = [];
   const grenades = [];
+  const flammes = [];
+  const eclairs = [];
+  const geoFlamme = new THREE.SphereGeometry(0.12, 6, 5);
+  const matFlamme = new THREE.MeshBasicMaterial({ color: 0xff8a2a, transparent: true, opacity: 0.8, depthWrite: false, blending: THREE.AdditiveBlending });
+  const matEclair = new THREE.LineBasicMaterial({ color: 0xcfeaff, transparent: true, opacity: 1, blending: THREE.AdditiveBlending });
   const geoImpact = new THREE.SphereGeometry(0.05, 6, 6);
   const matImpactMur = new THREE.MeshBasicMaterial({ color: 0xffe0a0 });
   const matImpactSang = new THREE.MeshBasicMaterial({ color: 0x6a0000 });
@@ -121,6 +126,67 @@ export function creerArmes({ camera, scene, inventaire, cibles, obstacles, joueu
     return res;
   }
 
+  const zombiesVivants = () => [...new Set(cibles().map((c) => c.userData.zombie))].filter((z) => !z.mort);
+  const boucheMonde = () => modeleCourant ? modeleCourant.localToWorld(modeleCourant.userData.bouche.clone()) : camera.getWorldPosition(new THREE.Vector3());
+
+  // Rien entre la caméra et ce point ?
+  function visibleDepuisCamera(point) {
+    const o = camera.getWorldPosition(new THREE.Vector3());
+    const v = point.clone().sub(o);
+    const d = v.length();
+    raycaster.set(o, v.normalize());
+    raycaster.far = d;
+    const bloque = raycaster.intersectObjects(obstacles(), false).length > 0;
+    raycaster.far = 120;
+    return !bloque;
+  }
+
+  function tirFlammes(def) {
+    const f = def.flamme;
+    const dir = camera.getWorldDirection(new THREE.Vector3());
+    const o = joueur.position;
+    for (const z of zombiesVivants()) {
+      if (!dansCone(o, { x: dir.x, z: dir.z }, z.position, f.portee, f.angle)) continue;
+      if (!visibleDepuisCamera(new THREE.Vector3(z.position.x, z.position.y + 1.2, z.position.z))) continue;
+      enflammer(z, f.brulureDps, f.brulureDuree);
+      surTouche(z, def.degats, { tete: false, couteau: false });
+    }
+    if (flammes.length < 60) {
+      const m = new THREE.Mesh(geoFlamme, matFlamme);
+      m.position.copy(boucheMonde());
+      const v = dir.clone().multiplyScalar(11).add(new THREE.Vector3((Math.random() - 0.5) * 2, Math.random(), (Math.random() - 0.5) * 2));
+      scene.add(m);
+      flammes.push({ m, v, t: 0.5 });
+    }
+  }
+
+  function tirElectrique(def, disp) {
+    const premier = lancerRayon('electrique', disp, 1)[0];
+    const points = [boucheMonde()];
+    if (premier) {
+      const chaine = chaineElectrique(premier.zombie, zombiesVivants(), def.chaine);
+      chaine.forEach((z, i) => {
+        surTouche(z, i === 0 ? premier.degats : degatsChaine(def.degats, i, def.chaine.facteur), { tete: i === 0 && premier.tete, couteau: false });
+        points.push(new THREE.Vector3(z.position.x, z.position.y + 1.2, z.position.z));
+      });
+    } else {
+      points.push(raycaster.ray.at(30, new THREE.Vector3()));
+    }
+    // ligne brisée : points intermédiaires décalés au hasard
+    const brises = [];
+    for (let i = 0; i < points.length - 1; i++) {
+      for (let k = 0; k < 6; k++) {
+        const p = points[i].clone().lerp(points[i + 1], k / 6);
+        if (k > 0) p.add(new THREE.Vector3((Math.random() - 0.5) * 0.3, (Math.random() - 0.5) * 0.3, (Math.random() - 0.5) * 0.3));
+        brises.push(p);
+      }
+    }
+    brises.push(points[points.length - 1]);
+    const l = new THREE.Line(new THREE.BufferGeometry().setFromPoints(brises), matEclair);
+    scene.add(l);
+    eclairs.push({ l, t: 0.1 });
+  }
+
   function tir() {
     const a = armeActive(etat.inventaire);
     const def = CONFIG.armes[a.id];
@@ -129,7 +195,11 @@ export function creerArmes({ camera, scene, inventaire, cibles, obstacles, joueu
     const mouvement = joueur.enMouvement ? 1.5 : 1;
     const disp = def.dispersion * visee * mouvement + etat.dispersionActuelle;
 
-    if (a.id === 'lanceGrenades') {
+    if (def.flamme) {
+      tirFlammes(def);
+    } else if (def.chaine) {
+      tirElectrique(def, disp);
+    } else if (a.id === 'lanceGrenades') {
       const pos = camera.getWorldPosition(new THREE.Vector3());
       const dir = camera.getWorldDirection(new THREE.Vector3());
       const m = new THREE.Mesh(new THREE.SphereGeometry(0.07, 8, 8), matArme);
@@ -149,7 +219,7 @@ export function creerArmes({ camera, scene, inventaire, cibles, obstacles, joueu
     }
     etat.attente = def.cadence === 'semi' ? 60 / CONFIG.semiCadenceMax : 60 / def.cadence;
     if (a.id === 'pompe') etat.attente = 60 / def.cadence; // pompe : semi mais cadence propre
-    const force = { pompe: 0.06, pompeAuto: 0.045, precision: 0.08, semiAuto: 0.04, revolver: 0.05, arbalete: 0.02, lanceGrenades: 0.05, pistolet: 0.025 }[a.id] ?? 0.012;
+    const force = { lanceFlammes: 0.002, electrique: 0.03, pompe: 0.06, pompeAuto: 0.045, precision: 0.08, semiAuto: 0.04, revolver: 0.05, arbalete: 0.02, lanceGrenades: 0.05, pistolet: 0.025 }[a.id] ?? 0.012;
     appliquerRecul(force * (joueur.vise ? 0.6 : 1));
     etat.recul = Math.min(etat.recul + force * 2, 0.2);
     etat.dispersionActuelle = Math.min(etat.dispersionActuelle + def.dispersion * 0.3, def.dispersion * 2);
@@ -234,6 +304,18 @@ export function creerArmes({ camera, scene, inventaire, cibles, obstacles, joueu
         exploser(h ? h.point : g.m.position.clone());
         scene.remove(g.m); grenades.splice(i, 1);
       } else g.m.position.add(pas);
+    }
+
+    for (let i = flammes.length - 1; i >= 0; i--) {
+      const f = flammes[i];
+      f.t -= dt;
+      f.m.position.addScaledVector(f.v, dt);
+      f.m.scale.setScalar(1 + (0.5 - f.t) * 6);
+      if (f.t <= 0) { scene.remove(f.m); flammes.splice(i, 1); }
+    }
+    for (let i = eclairs.length - 1; i >= 0; i--) {
+      eclairs[i].t -= dt;
+      if (eclairs[i].t <= 0) { scene.remove(eclairs[i].l); eclairs[i].l.geometry.dispose(); eclairs.splice(i, 1); }
     }
 
     // impacts

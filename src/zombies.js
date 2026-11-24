@@ -6,6 +6,7 @@ import { pvZombieActif, difficulteActive } from './regles/difficulte.js';
 import { deplacer } from './regles/collisions.js';
 import { trouverChemin, ligneLibre } from './regles/navigation.js';
 import { hauteurSol } from './carte.js';
+import { majBrulure } from './regles/combat.js';
 
 const Z = CONFIG.zombie;
 const VITESSES = { marche: Z.vitesseMarche, marcheRapide: Z.vitesseMarcheRapide, course: Z.vitesseCourse };
@@ -20,6 +21,8 @@ const peaux = [0x6f7d5c, 0x7a8466, 0x5f6b55, 0x8a8a6a].map((c) => new THREE.Mesh
 const habits = [0x3b3f2e, 0x2e3440, 0x4a3b2e, 0x3a3a3a].map((c) => new THREE.MeshStandardMaterial({ color: c, roughness: 0.95 }));
 const matYeux = new THREE.MeshBasicMaterial({ color: 0xffaa22 });
 const geoOeil = new THREE.BoxGeometry(0.05, 0.03, 0.02);
+const geoFeu = new THREE.SphereGeometry(0.45, 10, 8);
+const matFeu = new THREE.MeshBasicMaterial({ color: 0xff7a1a, transparent: true, opacity: 0.55, depthWrite: false, blending: THREE.AdditiveBlending });
 
 function construireModele(rng) {
   const peau = peaux[Math.floor(rng() * peaux.length)];
@@ -36,9 +39,10 @@ function construireModele(rng) {
   const jambeD = new THREE.Mesh(geo.jambe, habit); jambeD.position.set(0.13, 0.4, 0); g.add(jambeD);
   for (const m of [tronc, brasG, brasD, jambeG, jambeD]) m.userData.zone = 'corps';
   tete.userData.zone = 'tete';
+  const feu = new THREE.Mesh(geoFeu, matFeu); feu.position.y = 1.1; feu.scale.set(1, 1.8, 1); feu.visible = false; g.add(feu);
   const touchables = [tronc, tete, brasG, brasD, jambeG, jambeD];
   for (const m of touchables) m.castShadow = true;
-  return { g, corps, tete, brasG, brasD, jambeG, jambeD, touchables };
+  return { g, corps, tete, brasG, brasD, jambeG, jambeD, touchables, feu };
 }
 
 export function creerGestionnaireZombies(scene, carte, grille) {
@@ -95,11 +99,16 @@ export function creerGestionnaireZombies(scene, carte, grille) {
     liste.length = 0;
   }
 
-  function majZombies(dt, joueur, surCoup) {
+  // surBrulure(z, degats) : dégâts de feu, à faire passer par le même chemin que les tirs (comptage des morts)
+  function majZombies(dt, joueur, surCoup, surBrulure) {
     const jp = joueur.position;
     for (let i = liste.length - 1; i >= 0; i--) {
       const z = liste[i];
       const m = z.modele;
+      const feu = majBrulure(z, dt);
+      m.feu.visible = !z.mort && z.brulure?.t > 0;
+      if (m.feu.visible) m.feu.scale.set(0.9 + Math.random() * 0.2, 1.6 + Math.random() * 0.4, 0.9 + Math.random() * 0.2);
+      if (feu > 0 && !z.mort && z.emergence <= 0) surBrulure?.(z, feu);
       if (z.mort) {
         z.tempsMort += dt;
         m.g.rotation.x = Math.max(-Math.PI / 2, -z.tempsMort * 5);
