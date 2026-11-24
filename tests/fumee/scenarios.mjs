@@ -123,3 +123,18 @@ scenarios.push({
     verifier(await page.evaluate(() => window.__jeu.etat === 'partie' && window.__jeu.partie.vague === 0 && window.__jeu.portefeuille.points === 500), 'Rejouer relance une partie neuve');
   },
 });
+scenarios.push({
+  nom: "points d'apparition hors des obstacles",
+  async executer(page, verifier) {
+    const coinces = await page.evaluate(() => {
+      const j = window.__jeu, r = 0.35, out = [];
+      for (const [n, z] of Object.entries(j.carte.zones)) for (const pt of z.pointsApparition) {
+        const dedans = j.carte.aabbsZombies.some((b) => (b.maxY ?? 3) > 0.35 &&
+          pt.x + r > b.minX && pt.x - r < b.maxX && pt.z + r > b.minZ && pt.z - r < b.maxZ);
+        if (dedans) out.push(`${n}(${pt.x},${pt.z})`);
+      }
+      return out;
+    });
+    verifier(coinces.length === 0, "aucun point d'apparition dans un obstacle (" + coinces.join(', ') + ')');
+  },
+});

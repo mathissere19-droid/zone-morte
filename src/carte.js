@@ -42,7 +42,7 @@ export function construireCarte(scene) {
     zones: {
       cour: { debloquee: true, pointsApparition: [{ x: -16, z: -10 }, { x: -16, z: 16 }, { x: 11, z: 16 }, { x: 2, z: 16 }] },
       hangar: { debloquee: false, pointsApparition: [{ x: -16, z: -34 }, { x: 6, z: -34 }, { x: -16, z: -20 }] },
-      bunker: { debloquee: false, pointsApparition: [{ x: 34, z: 16 }, { x: 34, z: -10 }, { x: 18, z: 16 }] },
+      bunker: { debloquee: false, pointsApparition: [{ x: 34, z: 16 }, { x: 34, z: -10 }, { x: 20.5, z: 16 }] },
       tour: { debloquee: false, pointsApparition: [{ x: 34, z: -34 }, { x: 11, z: -34 }] },
     },
     portes: [],
