@@ -1,8 +1,9 @@
 // Points, achats et caisse de ravitaillement.
 import { CONFIG } from '../config.js';
+import { difficulteActive } from './difficulte.js';
 import { possede, ajouterArme, munitionsPleines, remplir } from './inventaire.js';
 
-export function creerPortefeuille(points = CONFIG.pointsDepart) {
+export function creerPortefeuille(points = difficulteActive().pointsDepart) {
   return { points };
 }
 

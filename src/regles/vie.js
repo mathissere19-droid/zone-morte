@@ -10,9 +10,10 @@ export function subir(vie, degats) {
   vie.depuisCoup = 0;
 }
 
-export function majVie(vie, dt) {
-  if (estMort(vie)) return;
-  const { delaiRegen, dureeRegen, vieMax } = CONFIG.joueur;
+// delaiRegen null : pas de régénération
+export function majVie(vie, dt, delaiRegen = CONFIG.joueur.delaiRegen) {
+  if (estMort(vie) || delaiRegen === null) return;
+  const { dureeRegen, vieMax } = CONFIG.joueur;
   vie.depuisCoup += dt;
   if (vie.depuisCoup >= delaiRegen) {
     vie.pv = Math.min(vieMax, Math.round((vie.pv + (vieMax / dureeRegen) * dt) * 1e6) / 1e6);

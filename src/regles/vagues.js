@@ -9,12 +9,12 @@ export function pvZombie(v) {
   return Math.round(950 * Math.pow(1.1, v - 9));
 }
 
-export function partCoureurs(v) {
-  if (v < 5) return 0;
-  return Math.round(Math.min(0.1 * (v - 4), 0.8) * 1e9) / 1e9;
+export function partCoureurs(v, premiere = 5) {
+  if (v < premiere) return 0;
+  return Math.round(Math.min(0.1 * (v - premiere + 1), 0.8) * 1e9) / 1e9;
 }
 
-export function typeDeplacement(v, rng) {
-  if (rng() < partCoureurs(v)) return 'course';
+export function typeDeplacement(v, rng, premiere = 5) {
+  if (rng() < partCoureurs(v, premiere)) return 'course';
   return v > 12 ? 'marcheRapide' : 'marche';
 }

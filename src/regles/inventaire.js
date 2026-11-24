@@ -1,7 +1,8 @@
 // Armes portées (2 emplacements) et munitions.
 import { CONFIG } from '../config.js';
+import { reserveMax } from './difficulte.js';
 
-const nouvelle = (id) => ({ id, chargeur: CONFIG.armes[id].chargeur, reserve: CONFIG.armes[id].reserve });
+const nouvelle = (id) => ({ id, chargeur: CONFIG.armes[id].chargeur, reserve: reserveMax(id) });
 
 export function creerInventaire() {
   return { armes: [nouvelle('pistolet')], active: 0 };
@@ -54,7 +55,7 @@ export function remplirTout(inv) {
 
 export function munitionsPleines(inv, id) {
   const a = inv.armes.find((x) => x.id === id);
-  return !!a && a.chargeur === CONFIG.armes[id].chargeur && a.reserve === CONFIG.armes[id].reserve;
+  return !!a && a.chargeur === CONFIG.armes[id].chargeur && a.reserve === reserveMax(id);
 }
 
 export function changer(inv, index) {

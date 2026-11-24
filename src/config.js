@@ -1,6 +1,13 @@
 // Toutes les valeurs d'équilibrage du jeu. Modifier ici, nulle part ailleurs.
 export const CONFIG = {
-  pointsDepart: 500,
+
+  // delaiRegen : secondes sans coup avant régénération (null = aucune)
+  difficultes: {
+    recrue:    { nom: 'Recrue',    pvZombies: 0.7, degatsRecus: 0.6, pointsDepart: 1000, munitions: 1.5,  premiereVagueCoureurs: 8, delaiRegen: 3 },
+    soldat:    { nom: 'Soldat',    pvZombies: 1,   degatsRecus: 1,   pointsDepart: 500,  munitions: 1,    premiereVagueCoureurs: 5, delaiRegen: 4 },
+    veteran:   { nom: 'Vétéran',   pvZombies: 1.3, degatsRecus: 1.4, pointsDepart: 500,  munitions: 1,    premiereVagueCoureurs: 3, delaiRegen: 6 },
+    cauchemar: { nom: 'Cauchemar', pvZombies: 1.6, degatsRecus: 1.8, pointsDepart: 250,  munitions: 0.75, premiereVagueCoureurs: 1, delaiRegen: null },
+  },
   points: { touche: 10, kill: 60, killTete: 100, killCouteau: 130 },
 
   joueur: {
