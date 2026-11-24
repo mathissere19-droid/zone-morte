@@ -3,10 +3,10 @@ export const CONFIG = {
 
   // delaiRegen : secondes sans coup avant régénération (null = aucune)
   difficultes: {
-    recrue:    { nom: 'Recrue',    pvZombies: 0.7, degatsRecus: 0.6, pointsDepart: 1000, munitions: 1.5,  premiereVagueCoureurs: 8, delaiRegen: 3 },
-    soldat:    { nom: 'Soldat',    pvZombies: 1,   degatsRecus: 1,   pointsDepart: 500,  munitions: 1,    premiereVagueCoureurs: 5, delaiRegen: 4 },
-    veteran:   { nom: 'Vétéran',   pvZombies: 1.3, degatsRecus: 1.4, pointsDepart: 500,  munitions: 1,    premiereVagueCoureurs: 3, delaiRegen: 6 },
-    cauchemar: { nom: 'Cauchemar', pvZombies: 1.6, degatsRecus: 1.8, pointsDepart: 250,  munitions: 0.75, premiereVagueCoureurs: 1, delaiRegen: null },
+    recrue:    { nom: 'Recrue',    pvZombies: 0.7, degatsRecus: 0.6, pointsDepart: 1000, munitions: 1.5,  premiereVagueCoureurs: 8, delaiRegen: 3, delaiFlair: 15 },
+    soldat:    { nom: 'Soldat',    pvZombies: 1,   degatsRecus: 1,   pointsDepart: 500,  munitions: 1,    premiereVagueCoureurs: 5, delaiRegen: 4, delaiFlair: 15 },
+    veteran:   { nom: 'Vétéran',   pvZombies: 1.3, degatsRecus: 1.4, pointsDepart: 500,  munitions: 1,    premiereVagueCoureurs: 3, delaiRegen: 6, delaiFlair: 10 },
+    cauchemar: { nom: 'Cauchemar', pvZombies: 1.6, degatsRecus: 1.8, pointsDepart: 250,  munitions: 0.75, premiereVagueCoureurs: 1, delaiRegen: null, delaiFlair: 6 },
   },
   points: { touche: 10, kill: 60, killTete: 100, killCouteau: 130 },
 
@@ -58,6 +58,9 @@ export const CONFIG = {
   vagues: { pause: 10, premierePause: 3, maxVivants: 24, distanceMinApparition: 8 },
 
   grenade: { max: 2, degats: 300, rayon: 5, degatsJoueurMax: 50, fusee: 2, vitesse: 14, delai: 0.8 },
+
+  // perception des zombies (Lot 2) : distances en m, cône en degrés, intervalle en s
+  perception: { vue: 25, vueOmbre: 12, cone: 120, contact: 2, alerte: 8, fouille: 6, intervalle: 0.2, bruit: { tir: 30, sprint: 10, marche: 5, accroupi: 1.5 } },
 
   couteau: { degats: 150, portee: 1.6, delai: 0.6 },
 
