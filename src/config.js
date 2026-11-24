@@ -80,5 +80,6 @@ export const CONFIG = {
       lune: { couleur: 0x8fa6d8, intensite: 0.8, ombre: 2048 },
       lampe: { couleur: 0xfff1d6, intensite: 40, portee: 25, angle: 0.45, penombre: 0.6 },
     },
+    effets: { trousMax: 64, tachesParZombie: 6, particulesMax: 500 },
   },
 };

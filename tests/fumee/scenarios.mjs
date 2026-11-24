@@ -20,7 +20,8 @@ scenarios.push({
   nom: 'apparition des zombies (vague 1)',
   async executer(page, verifier, attendre) {
     await page.evaluate(() => { window.__jeu.joueur.vie.pv = 1e9; window.__jeu.accelerer(5); });
-    await attendre(6000);
+    // attente conditionnelle (le temps de jeu dépend de la vitesse du rendu logiciel)
+    await page.waitForFunction(() => window.__jeu.zombies.liste.length > 0, null, { timeout: 60000 }).catch(() => {});
     const r = await page.evaluate(() => ({ n: window.__jeu.zombies.liste.length, v: window.__jeu.partie.vague }));
     verifier(r.n > 0, 'des zombies sont apparus (' + r.n + ')');
     verifier(r.v === 1, 'vague 1 en cours');
@@ -211,7 +212,11 @@ scenarios.push({
       C.enflammer(z, 1000, 3);
       window.__brule = z;
     });
-    await attendre(1000);
+    // attente conditionnelle : en rendu logiciel, le temps de jeu avance moins vite que le temps réel
+    const t0 = Date.now();
+    await page.waitForFunction(() => window.__brule.mort, null, { timeout: 10000 }).catch(() => {});
+    await attendre(100);
+    console.log(`  (brûlure : ${Date.now() - t0} ms)`);
     const r = await page.evaluate(() => ({ mort: window.__brule.mort, vivants: window.__jeu.partie.vivants, kills: window.__jeu.partie.kills }));
     verifier(r.mort && r.vivants === 0 && r.kills === 1, 'mort par brûlure comptée (' + JSON.stringify(r) + ')');
   },
@@ -358,7 +363,8 @@ scenarios.push({
 scenarios.push({
   nom: 'qualité : bascule Basse → Haute → Moyenne en pleine partie',
   async executer(page, verifier, attendre) {
-    verifier(await page.evaluate(() => window.__jeu.qualite) === 'basse', 'Basse par défaut en mode test');
+    const attendue = process.env.FUMEE_QUALITE ?? 'basse';
+    verifier(await page.evaluate(() => window.__jeu.qualite) === attendue, `qualité de départ en mode test : ${attendue}`);
     await page.evaluate(() => { window.__jeu.demarrerPartie('recrue'); window.__jeu.joueur.vie.pv = 1e9; });
     for (const q of ['haute', 'moyenne', 'basse']) {
       await page.evaluate((id) => window.__jeu.changerQualite(id), q);
@@ -406,5 +412,44 @@ scenarios.push({
       cible1, { timeout: 10000 }).then(() => true, () => false);
     verifier(tourne, `le gyrophare tourne (${Date.now() - t0} ms)`);
     await page.evaluate(() => window.__jeu.changerQualite('basse'));
+  },
+});
+scenarios.push({
+  nom: 'trous de balle bornés',
+  async executer(page, verifier, attendre) {
+    const tirs = (n) => page.evaluate((n) => {
+      const j = window.__jeu;
+      for (let i = 0; i < n; i++) { for (const a of j.inventaire.armes) a.chargeur = 999; j.camera.rotation.set(0, Math.PI / 2, 0); j.armes.etat.dispersionActuelle = 0; j.tirer(); } // recul annulé : on reste face au mur
+    }, n);
+    await page.evaluate(() => {
+      const j = window.__jeu;
+      j.demarrerPartie('soldat'); j.partie.chrono = 1e9; j.joueur.vie.pv = 1e9; j.zombies.vider();
+      j.joueur.placer(-16, 0); j.camera.rotation.set(0, Math.PI / 2, 0); // face au mur ouest
+    });
+    await tirs(100);
+    verifier(await page.evaluate(() => window.__jeu.effets.particules.length > 0), 'étincelles et poussière à l\'impact');
+    await page.waitForFunction(() => window.__jeu.effets.particules.length === 0, null, { timeout: 20000 });
+    const n1 = await page.evaluate(() => window.__jeu.scene.children.length);
+    await tirs(200);
+    await page.waitForFunction(() => window.__jeu.effets.particules.length === 0, null, { timeout: 20000 });
+    const r = await page.evaluate(() => ({ trous: window.__jeu.effets.trous.length, n: window.__jeu.scene.children.length }));
+    verifier(r.trous === 64, `64 trous de balle au maximum (${r.trous})`);
+    verifier(Math.abs(r.n - n1) <= 20, `scène stable (${n1} → ${r.n} objets)`);
+  },
+});
+scenarios.push({
+  nom: 'explosion avec fumée',
+  async executer(page, verifier, attendre) {
+    await page.evaluate(() => {
+      const j = window.__jeu;
+      j.armes.vider(); j.effets.vider(); j.joueur.vie.pv = 1e9;
+      j.joueur.placer(-2, 4); j.camera.rotation.set(-0.35, 0, 0);
+      j.inventaire.grenades = 2;
+      j.entrees.appuis.add('KeyG');
+    });
+    await page.waitForFunction(() => window.__jeu.armes.derniereExplosion, null, { timeout: 20000 });
+    verifier(await page.evaluate(() => window.__jeu.effets.fumees.length > 0), 'la fumée apparaît');
+    const disparue = await page.waitForFunction(() => window.__jeu.effets.fumees.length === 0, null, { timeout: 30000 }).then(() => true, () => false);
+    verifier(disparue, 'la fumée se dissipe');
   },
 });

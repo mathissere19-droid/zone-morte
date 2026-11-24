@@ -28,7 +28,9 @@ try {
   page.on('console', (m) => { if (m.type() === 'error') erreurs.push(m.text()); });
   page.on('pageerror', (e) => erreurs.push(String(e)));
 
-  await page.goto(`http://localhost:${PORT}/?test=1`);
+  // FUMEE_QUALITE=haute : tout le parcours dans un autre niveau de qualité (Basse par défaut en test)
+  const qualite = process.env.FUMEE_QUALITE ? '&qualite=' + process.env.FUMEE_QUALITE : '';
+  await page.goto(`http://localhost:${PORT}/?test=1${qualite}`);
   await page.waitForFunction(() => window.__jeu && window.__jeu.pret !== false, null, { timeout: 30000 });
   verifier(true, 'le jeu se charge');
 

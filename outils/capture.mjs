@@ -1,10 +1,10 @@
-// Capture d'écran du jeu pour juger le rendu : node outils/capture.mjs <qualite> <x> <z> <angleDeg> <fichier> [lampe]
+// Capture d'écran du jeu pour juger le rendu : node outils/capture.mjs <qualite> <x> <z> <angleDeg> <fichier> [lampe] [effets]
 import { spawn } from 'node:child_process';
 import { chromium } from 'playwright-core';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 const racine = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const [qualite = 'haute', x = '-5', z = '5', angle = '0', fichier = 'capture.png', lampe] = process.argv.slice(2);
+const [qualite = 'haute', x = '-5', z = '5', angle = '0', fichier = 'capture.png', lampe, effets] = process.argv.slice(2);
 const serveur = spawn('python', ['-m', 'http.server', '8645'], { cwd: racine, stdio: 'ignore' });
 await new Promise((r) => setTimeout(r, 800));
 const b = await chromium.launch({ channel: 'msedge', headless: true, args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'] });
@@ -19,6 +19,19 @@ try {
     if (l) j.entrees.appuis.add('KeyF');
   }, [x, z, angle, lampe]);
   await new Promise((r) => setTimeout(r, 6000));
+  if (effets) { // effets : rafale sur ce qu'on vise + explosion à 7 m devant
+    await p.evaluate(([a]) => {
+      const j = window.__jeu, r = (+a * Math.PI) / 180;
+      for (let i = 0; i < 25; i++) {
+        for (const w of j.inventaire.armes) w.chargeur = 999;
+        j.camera.rotation.set(-0.05 + Math.random() * 0.1, r + (Math.random() - 0.5) * 0.15, 0, 'YXZ');
+        j.tirer();
+      }
+      j.camera.rotation.set(0, r, 0, 'YXZ');
+      j.effets.explosion(new j.camera.position.constructor(j.joueur.position.x - Math.sin(r) * 7, 0.6, j.joueur.position.z - Math.cos(r) * 7));
+    }, [angle]);
+    await new Promise((r) => setTimeout(r, 400));
+  }
   await p.evaluate(() => { document.getElementById('hud').style.display = 'none'; });
   await new Promise((r) => setTimeout(r, 1000));
   await p.screenshot({ path: fichier });

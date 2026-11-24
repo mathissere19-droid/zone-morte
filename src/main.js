@@ -8,6 +8,7 @@ import { creerJoueur, entrees, finImageEntrees } from './joueur.js';
 import { creerGrille, marquerObstacles, ligneLibre } from './regles/navigation.js';
 import { creerGestionnaireZombies } from './zombies.js';
 import { creerArmes } from './armes.js';
+import { creerEffets } from './effets.js';
 import { creerBonus, NOMS_BONUS } from './bonus.js';
 import { creerInterface } from './interface.js';
 import { creerRendu } from './rendu.js';
@@ -90,8 +91,11 @@ const bonus = creerBonus(scene);
 let partie, portefeuille, inventaire, doubles = 0, delaiApparition = 0;
 inventaire = creerInventaire();
 
+const effets = creerEffets(scene);
+rendu.surQualite((p) => effets.qualite(p));
+
 const armes = creerArmes({
-  camera, scene, inventaire, joueur,
+  camera, scene, effets, inventaire, joueur,
   cibles: () => zombies.cibles(),
   obstacles: () => carte.obstaclesVisibles,
   surTouche: toucherZombie,
@@ -142,14 +146,8 @@ function blesserJoueur(degats, { brut = false } = {}) {
   ui.flashDegats();
 }
 
-const explosions = [];
 function explosionVisuelle(pos) {
-  const m = new THREE.Mesh(new THREE.SphereGeometry(1, 16, 12), new THREE.MeshBasicMaterial({ color: 0xffa040, transparent: true, opacity: 0.9 }));
-  m.position.copy(pos);
-  const l = new THREE.PointLight(0xff8030, 40, 15, 2);
-  l.position.copy(pos);
-  scene.add(m, l);
-  explosions.push({ m, l, t: 0.4 });
+  effets.explosion(pos);
 }
 
 function appliquerBonus(type) {
@@ -234,7 +232,7 @@ function replacerZombie(z) {
 
 // ---------- États de jeu ----------
 const jeu = {
-  etat: 'menu', scene, camera, renderer, modeTest, carte, grille, joueur, zombies, bonus, armes,
+  etat: 'menu', scene, camera, renderer, modeTest, carte, grille, joueur, zombies, bonus, armes, effets,
   get partie() { return partie; },
   get portefeuille() { return portefeuille; },
   get inventaire() { return inventaire; },
@@ -262,6 +260,7 @@ function demarrerPartie(idDifficulte) {
   inventaire = creerInventaire();
   armes.reinitialiser(inventaire);
   armes.vider();
+  effets.vider();
   doubles = 0;
   basculerLampe(false);
   joueur.placer(carte.depart.x, carte.depart.z);
@@ -317,14 +316,7 @@ function boucle(dtBrut) {
   majCarte(carte, dt);
   ui.maj(dt);
 
-  for (let i = explosions.length - 1; i >= 0; i--) {
-    const e = explosions[i];
-    e.t -= dt;
-    e.m.scale.setScalar(1 + (0.4 - e.t) * 10);
-    e.m.material.opacity = Math.max(0, e.t / 0.4);
-    e.l.intensity = Math.max(0, e.t * 100);
-    if (e.t <= 0) { scene.remove(e.m, e.l); explosions.splice(i, 1); }
-  }
+  effets.maj(dt);
 
   if (jeu.etat === 'partie') {
     joueur.majJoueur(dt, carte.aabbs);
