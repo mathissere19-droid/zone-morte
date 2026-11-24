@@ -1,7 +1,8 @@
 // Zone Morte — assemblage et boucle de jeu.
 import * as THREE from 'three';
 import { CONFIG } from './config.js';
-import { construireCarte, majCarte, ouvrirPorte, fermerPortes } from './carte.js';
+import { construireCarte, majCarte, ouvrirPorte, fermerPortes, hauteurSol } from './carte.js';
+import { creerSuiviBlocage } from './regles/blocage.js';
 import { creerJoueur, entrees, finImageEntrees } from './joueur.js';
 import { creerGrille, marquerObstacles, ligneLibre } from './regles/navigation.js';
 import { creerGestionnaireZombies } from './zombies.js';
@@ -196,6 +197,14 @@ function pointsApparitionActifs() {
   return r;
 }
 
+// Filet de sécurité : un zombie coincé ressort d'un point d'apparition (sans compter une nouvelle apparition).
+function replacerZombie(z) {
+  const pt = choisirPointApparition(pointsApparitionActifs(), joueur.position, pointVisible, Math.random);
+  z.position.x = pt.x; z.position.z = pt.z; z.position.y = hauteurSol(pt.x, pt.z);
+  z.emergence = 0.8; z.chemin = null;
+  z.suivi = creerSuiviBlocage(z.position);
+}
+
 // ---------- États de jeu ----------
 const jeu = {
   etat: 'menu', scene, camera, renderer, modeTest, carte, grille, joueur, zombies, bonus, armes,
@@ -295,7 +304,7 @@ function boucle(dtBrut) {
       enregistrerApparition(partie);
       delaiApparition = 0.35;
     }
-    zombies.majZombies(dt, joueur, (d) => blesserJoueur(d), (z, d) => toucherZombie(z, d, { brulure: true }));
+    zombies.majZombies(dt, joueur, (d) => blesserJoueur(d), (z, d) => toucherZombie(z, d, { brulure: true }), replacerZombie);
     armes.majArmes(dt, true);
     bonus.majBonus(dt, joueur, appliquerBonus);
     doubles = Math.max(0, doubles - dt);

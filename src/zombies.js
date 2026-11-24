@@ -7,6 +7,7 @@ import { deplacer } from './regles/collisions.js';
 import { trouverChemin, ligneLibre } from './regles/navigation.js';
 import { hauteurSol } from './carte.js';
 import { majBrulure } from './regles/combat.js';
+import { creerSuiviBlocage, majSuiviBlocage } from './regles/blocage.js';
 
 const Z = CONFIG.zombie;
 const VITESSES = { marche: Z.vitesseMarche, marcheRapide: Z.vitesseMarcheRapide, course: Z.vitesseCourse };
@@ -66,6 +67,7 @@ export function creerGestionnaireZombies(scene, carte, grille) {
       phase: rng() * 10,
       emergence: 0.8, // sort du sol
     };
+    z.suivi = creerSuiviBlocage(z.position);
     for (const t of m.touchables) t.userData.zombie = z;
     m.g.position.set(z.position.x, z.position.y - 1.8, z.position.z);
     scene.add(m.g);
@@ -100,7 +102,8 @@ export function creerGestionnaireZombies(scene, carte, grille) {
   }
 
   // surBrulure(z, degats) : dégâts de feu, à faire passer par le même chemin que les tirs (comptage des morts)
-  function majZombies(dt, joueur, surCoup, surBrulure) {
+  // surBloque(z) : zombie immobile trop longtemps loin du joueur, à replacer
+  function majZombies(dt, joueur, surCoup, surBrulure, surBloque) {
     const jp = joueur.position;
     for (let i = liste.length - 1; i >= 0; i--) {
       const z = liste[i];
@@ -169,6 +172,7 @@ export function creerGestionnaireZombies(scene, carte, grille) {
         angleCible = Math.atan2(mx, mz);
         enMarche = true;
       }
+      if (majSuiviBlocage(z.suivi, z.position, dt, dist)) { surBloque?.(z); continue; }
       if (z.recul > 0) z.recul -= dt;
       if (z.frappe > 0) z.frappe -= dt;
 

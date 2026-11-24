@@ -301,3 +301,26 @@ scenarios.push({
     verifier(pv === 100, 'trousse de soin : vie pleine (' + pv + ')');
   },
 });
+scenarios.push({
+  nom: 'anti-blocage : un zombie coincé est replacé',
+  async executer(page, verifier) {
+    await page.evaluate(async () => {
+      const j = window.__jeu; const C = await import('/src/carte.js'); const P = await import('/src/regles/partie.js');
+      (await import('/src/config.js')).CONFIG.joueur.vieMax = 1e9;
+      j.demarrerPartie('soldat'); j.joueur.vie.pv = 1e9;
+      for (const p of j.carte.portes) C.ouvrirPorte(j.carte, p);
+      j.partie.chrono = 1e9; j.partie.phase = 'combat'; j.partie.restants = 0;
+      window.__coince = j.zombies.faireApparaitre({ x: 18, z: 16 }, 1); // dans la caisse en bois du bunker
+      P.enregistrerApparition(j.partie); j.partie.restants = 0;
+      j.accelerer(4);
+    });
+    await page.waitForFunction(() => Math.hypot(window.__coince.position.x - 18, window.__coince.position.z - 16) > 1, null, { timeout: 60000 });
+    const r = await page.evaluate(async () => {
+      const j = window.__jeu; const z = window.__coince; j.accelerer(1);
+      (await import('/src/config.js')).CONFIG.joueur.vieMax = 100; j.joueur.vie.pv = 100;
+      const dedans = j.carte.aabbsZombies.some((b) => (b.maxY ?? 3) > 0.35 && z.position.x + 0.35 > b.minX && z.position.x - 0.35 < b.maxX && z.position.z + 0.35 > b.minZ && z.position.z - 0.35 < b.maxZ);
+      return { vivants: j.partie.vivants, dedans, pos: [z.position.x.toFixed(1), z.position.z.toFixed(1)] };
+    });
+    verifier(r.vivants === 1 && !r.dedans, 'zombie replacé hors obstacle, compteur inchangé (' + JSON.stringify(r) + ')');
+  },
+});

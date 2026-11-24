@@ -58,5 +58,6 @@ export const CONFIG = {
     vitesseMarche: 1.2, vitesseMarcheRapide: 2.2, vitesseCourse: 4.2,
     porteeAttaque: 1.3, delaiAttaque: 1.0, rayon: 0.35,
     recalculChemin: 0.5, distanceDirecte: 6,
+    antiBlocage: { deplacementMin: 0.3, duree: 8, distanceMin: 3 },
   },
 };
