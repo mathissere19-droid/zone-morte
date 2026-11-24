@@ -22,6 +22,18 @@ Python doit être installé (c'est le cas sur ce PC).
 | Changer d'arme | 1, 2 ou molette |
 | Pause | Échap |
 
+## Difficultés
+À choisir sur l'écran d'accueil (un record par niveau) :
+- **Recrue** : zombies plus faibles, plus de points et de munitions, coureurs à partir de la vague 8.
+- **Soldat** : le jeu normal.
+- **Vétéran** : zombies plus résistants, coups plus forts, coureurs dès la vague 3.
+- **Cauchemar** : zombies très résistants, coureurs dès la vague 1, **la vie ne remonte pas** (seulement avec la trousse de soin).
+
+## Armes
+- Au mur : mitraillette, revolver (cour), fusil à pompe (hangar), fusil d'assaut (bunker), fusil semi-automatique (tour).
+- Dans la caisse : pistolet-mitrailleur compact, fusil à pompe automatique, arbalète… et parfois une arme rare : fusil de précision lourd, mitrailleuse lourde, lance-grenades, **lance-flammes**, **fusil électrique**.
+- 2 grenades (G), rendues au début de chaque vague.
+
 ## Régler le jeu
 Tous les chiffres (prix, dégâts, vie, vagues…) sont dans `src/config.js`.
 

@@ -324,3 +324,26 @@ scenarios.push({
     verifier(r.vivants === 1 && !r.dedans, 'zombie replacé hors obstacle, compteur inchangé (' + JSON.stringify(r) + ')');
   },
 });
+scenarios.push({
+  nom: 'vague 5 en Cauchemar, toutes zones ouvertes : la vague 6 arrive',
+  async executer(page, verifier, attendre) {
+    await page.evaluate(async () => {
+      const j = window.__jeu; const C = await import('/src/carte.js');
+      (await import('/src/config.js')).CONFIG.joueur.vieMax = 1e9;
+      j.demarrerPartie('cauchemar'); j.joueur.vie.pv = 1e9;
+      for (const p of j.carte.portes) C.ouvrirPorte(j.carte, p);
+      j.partie.vague = 4; j.partie.chrono = 0; j.accelerer(3);
+    });
+    let v = 5;
+    for (let t = 0; t < 300 && v < 6; t++) {
+      await attendre(1000);
+      v = await page.evaluate(() => {
+        const j = window.__jeu, jp = j.joueur.position; j.joueur.vie.pv = 1e9;
+        for (const z of [...j.zombies.liste]) if (!z.mort && Math.hypot(z.position.x - jp.x, z.position.z - jp.z) < 2) j.toucherZombie(z, 1e9, {});
+        return j.partie.vague;
+      });
+    }
+    await page.evaluate(async () => { (await import('/src/config.js')).CONFIG.joueur.vieMax = 100; window.__jeu.accelerer(1); });
+    verifier(v >= 6, 'la vague 6 démarre (vague ' + v + ')');
+  },
+});
