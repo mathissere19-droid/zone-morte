@@ -34,6 +34,7 @@ test('tout reste atteignable depuis le départ, toutes portes ouvertes', () => {
     ...carte.mursArmes.map((m) => m.position),
     carte.caisse.position,
     ...carte.portes.flatMap((p) => p.segments),
+    ...(carte.liens ?? [null]).map((l) => l?.bas ?? { x: 1e3, z: 1e3 }), // pieds des liens d'escalade et des échelles
   ];
   for (const c of cibles) {
     assert.ok(trouverChemin(g, carte.depart, { x: c.x, z: c.z }), `inatteignable : ${c.x},${c.z}`);

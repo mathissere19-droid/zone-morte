@@ -111,7 +111,7 @@ scenarios.push({
   nom: 'mort du joueur, écran de fin et record',
   async executer(page, verifier, attendre) {
     await page.evaluate(() => { localStorage.removeItem('zoneMorte.record'); localStorage.removeItem('zoneMorte.record.soldat'); window.__jeu.partie.vague = 3; window.__jeu.joueur.vie.pv = 0; });
-    await attendre(300);
+    await page.waitForFunction(() => window.__jeu.etat === 'fin', null, { timeout: 10000 }).catch(() => {});
     const r = await page.evaluate(() => ({
       etat: window.__jeu.etat,
       ecran: !document.getElementById('ecran-fin').classList.contains('cache'),

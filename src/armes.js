@@ -265,7 +265,7 @@ export function creerArmes({ camera, scene, effets, inventaire, cibles, obstacle
         if (h) { g.v.x *= -0.3; g.v.z *= -0.3; if (g.v.y > 0) g.v.y *= -0.3; } // rebond contre un obstacle
         else g.m.position.add(pas);
       }
-      const sol = hauteurSol(g.m.position.x, g.m.position.z) + 0.06;
+      const sol = hauteurSol(g.m.position.x, g.m.position.z, g.m.position.y) + 0.06;
       if (g.m.position.y <= sol) {
         g.m.position.y = sol;
         if (g.v.y < 0) { g.v.y = -g.v.y * 0.3; g.v.x *= 0.6; g.v.z *= 0.6; }

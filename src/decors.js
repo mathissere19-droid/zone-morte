@@ -229,3 +229,13 @@ export function guerite(mats, dims, h) {
   piece(i, mats.betonSombre, L - 2 * e, 0.05, W - 2 * e, 0, 0, 0);
   return g;
 }
+
+// Échelle : deux montants et des barreaux tous les 30 cm, face au joueur selon +z local
+export function echelle(mats, haut) {
+  const g = new THREE.Group();
+  for (const x of [-0.25, 0.25]) piece(g, mats.metal, 0.05, haut + 0.9, 0.05, x, 0, 0);
+  const barreaux = [];
+  for (let y = 0.3; y < haut + 0.9; y += 0.3) barreaux.push({ p: [0, y, 0] });
+  instances(g, geoBoite(0.5, 0.03, 0.03), mats.metal, barreaux);
+  return g;
+}

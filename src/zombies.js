@@ -168,7 +168,7 @@ export function creerGestionnaireZombies(scene, carte, grille) {
         const v = z.vitesse * dt * (z.recul > 0 ? 0.3 : 1);
         const p = deplacer(z.position, (mx / lm) * v, (mz / lm) * v, Z.rayon, carte.aabbsZombies, z.position.y);
         z.position.x = p.x; z.position.z = p.z;
-        z.position.y = hauteurSol(p.x, p.z);
+        z.position.y = hauteurSol(p.x, p.z, z.position.y);
         angleCible = Math.atan2(mx, mz);
         enMarche = true;
       }

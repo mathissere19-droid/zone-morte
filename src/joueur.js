@@ -96,7 +96,7 @@ export function creerJoueur(camera, dom) {
       this.position.z = Math.min(17.6, Math.max(-35.6, p.z));
 
       // saut et gravité
-      const solY = hauteurSol(this.position.x, this.position.z);
+      const solY = hauteurSol(this.position.x, this.position.z, this.position.y);
       if (this.auSol && entrees.appuis.has('Space')) { this.vy = J.sautVitesse; this.auSol = false; }
       this.vy -= J.gravite * dt;
       this.position.y += this.vy * dt;
