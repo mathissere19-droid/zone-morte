@@ -1,7 +1,8 @@
 // Zone Morte — assemblage et boucle de jeu.
 import * as THREE from 'three';
 import { CONFIG } from './config.js';
-import { construireCarte, majCarte, ouvrirPorte, fermerPortes, hauteurSol } from './carte.js';
+import { appliquerTextures } from './textures.js';
+import { construireCarte, mats, majCarte, ouvrirPorte, fermerPortes, hauteurSol } from './carte.js';
 import { creerSuiviBlocage } from './regles/blocage.js';
 import { creerJoueur, entrees, finImageEntrees } from './joueur.js';
 import { creerGrille, marquerObstacles, ligneLibre } from './regles/navigation.js';
@@ -52,6 +53,7 @@ addEventListener('resize', () => {
 
 // ---------- Monde ----------
 const carte = construireCarte(scene);
+appliquerTextures(mats, renderer);
 const grille = creerGrille({ minX: -18, minZ: -36, largeur: 54, profondeur: 54, taille: 0.5 });
 marquerObstacles(grille, carte.navObstacles);
 carte.surChangement = () => marquerObstacles(grille, carte.navObstacles);

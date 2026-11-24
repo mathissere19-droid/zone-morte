@@ -2,10 +2,11 @@
 // Repère : x vers l'est, z vers le sud (nord = -z). Zone jouable : x[-18,36] z[-36,18].
 import * as THREE from 'three';
 import { CONFIG } from './config.js';
+import { uvEnMetres } from './uv.js';
 
 const EP = 0.4; // épaisseur des murs
 
-const mats = {
+export const mats = {
   asphalte: new THREE.MeshStandardMaterial({ color: 0x2c2d30, roughness: 0.95 }),
   beton: new THREE.MeshStandardMaterial({ color: 0x55534e, roughness: 0.9 }),
   betonSombre: new THREE.MeshStandardMaterial({ color: 0x3b3a37, roughness: 0.9 }),
@@ -20,6 +21,10 @@ const mats = {
   caisse: new THREE.MeshStandardMaterial({ color: 0x3d5a2a, roughness: 0.7, emissive: 0x0a2a05 }),
   murArme: new THREE.MeshStandardMaterial({ color: 0xd9c38a, emissive: 0x3a2f10, roughness: 0.6 }),
   dehors: new THREE.MeshStandardMaterial({ color: 0x1b1d1c, roughness: 1 }),
+  solHangar: new THREE.MeshStandardMaterial({ color: 0x4a4946, roughness: 0.9 }),
+  sacs: new THREE.MeshStandardMaterial({ color: 0x8a7b58, roughness: 1 }),
+  bache: new THREE.MeshStandardMaterial({ color: 0x4a5236, roughness: 0.95 }),
+  grillage: new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.6, metalness: 0.5, transparent: true, alphaTest: 0.5, side: THREE.DoubleSide }),
 };
 
 // Hauteur du sol (rampe et plateforme de la tour radio)
@@ -58,7 +63,7 @@ export function construireCarte(scene) {
   scene.add(groupe);
 
   function boite(minX, maxX, minZ, maxZ, minY, maxY, mat, { collision = true, nav = true, zombies = true } = {}) {
-    const g = new THREE.BoxGeometry(maxX - minX, maxY - minY, maxZ - minZ);
+    const g = uvEnMetres(new THREE.BoxGeometry(maxX - minX, maxY - minY, maxZ - minZ), { x: maxX - minX, y: maxY - minY, z: maxZ - minZ });
     const m = new THREE.Mesh(g, mat);
     m.position.set((minX + maxX) / 2, (minY + maxY) / 2, (minZ + maxZ) / 2);
     m.castShadow = m.receiveShadow = true;
@@ -88,7 +93,7 @@ export function construireCarte(scene) {
   }
 
   function sol(minX, maxX, minZ, maxZ, mat, y = 0.001) {
-    const m = new THREE.Mesh(new THREE.PlaneGeometry(maxX - minX, maxZ - minZ), mat);
+    const m = new THREE.Mesh(uvEnMetres(new THREE.PlaneGeometry(maxX - minX, maxZ - minZ), { x: maxX - minX, z: maxZ - minZ }), mat);
     m.rotation.x = -Math.PI / 2;
     m.position.set((minX + maxX) / 2, y, (minZ + maxZ) / 2);
     m.receiveShadow = true;
@@ -140,7 +145,7 @@ export function construireCarte(scene) {
   // ---------- Sols ----------
   sol(-60, 80, -80, 60, mats.dehors, 0);
   sol(-18, 14, -12, 18, mats.asphalte);
-  sol(-18, 8, -36, -12, mats.beton);
+  sol(-18, 8, -36, -12, mats.solHangar);
   sol(14, 36, -12, 18, mats.betonSombre);
   sol(8, 36, -36, -12, mats.sable);
 
@@ -152,7 +157,7 @@ export function construireCarte(scene) {
   // grillage décoratif au-dessus des murs de la cour
   for (const [x1, z1, x2, z2] of [[-18, -12, -18, 18], [-18, 18, 14, 18]]) {
     const long = Math.hypot(x2 - x1, z2 - z1);
-    const g = new THREE.Mesh(new THREE.PlaneGeometry(long, 2), new THREE.MeshStandardMaterial({ color: 0x888888, wireframe: true }));
+    const g = new THREE.Mesh(uvEnMetres(new THREE.PlaneGeometry(long, 2), { x: long, z: 2 }), mats.grillage);
     g.position.set((x1 + x2) / 2, 5, (z1 + z2) / 2);
     if (x1 === x2) g.rotation.y = Math.PI / 2;
     groupe.add(g);
@@ -190,7 +195,7 @@ export function construireCarte(scene) {
   murArme('revolver', -8, 18 - EP / 2, 0, -1);        // mur sud de la cour
 
   // ---------- Hangar ----------
-  const toit = new THREE.Mesh(new THREE.BoxGeometry(26, 0.3, 24), mats.tole);
+  const toit = new THREE.Mesh(uvEnMetres(new THREE.BoxGeometry(26, 0.3, 24), { x: 26, y: 0.3, z: 24 }), mats.tole);
   toit.position.set(-5, 8, -24);
   groupe.add(toit);
   mur(-18, -36, -18, -12, 8, mats.tole);
@@ -205,7 +210,7 @@ export function construireCarte(scene) {
   carte.caisse = { position: new THREE.Vector3(0, 1, -33), mesh: caisse.mesh };
 
   // ---------- Bunker (plafond bas) ----------
-  const plafond = new THREE.Mesh(new THREE.BoxGeometry(22, 0.3, 30), mats.betonSombre);
+  const plafond = new THREE.Mesh(uvEnMetres(new THREE.BoxGeometry(22, 0.3, 30), { x: 22, y: 0.3, z: 30 }), mats.betonSombre);
   plafond.position.set(25, 2.75, 3);
   groupe.add(plafond);
   mur(22, -12, 22, 6, 2.6, mats.betonSombre);
@@ -231,7 +236,7 @@ export function construireCarte(scene) {
   ];
   carte.aabbsZombies.push(...bords);
   carte.navObstacles.push(...bords);
-  const rampe = new THREE.Mesh(new THREE.BoxGeometry(Math.hypot(5, 3), 0.2, 2), mats.metal);
+  const rampe = new THREE.Mesh(uvEnMetres(new THREE.BoxGeometry(Math.hypot(5, 3), 0.2, 2), { x: Math.hypot(5, 3), y: 0.2, z: 2 }), mats.metal);
   rampe.position.set(22.5, 1.5, -28);
   rampe.rotation.z = Math.atan2(3, 5);
   groupe.add(rampe);

@@ -1,2 +1,16 @@
 # Crédits
 - three.js — MIT License — https://threejs.org
+- worn_asphalt — Poly Haven — CC0 — https://polyhaven.com/a/worn_asphalt
+- concrete_wall_008 — Poly Haven — CC0 — https://polyhaven.com/a/concrete_wall_008
+- dirty_concrete — Poly Haven — CC0 — https://polyhaven.com/a/dirty_concrete
+- hangar_concrete_floor — Poly Haven — CC0 — https://polyhaven.com/a/hangar_concrete_floor
+- sandy_gravel — Poly Haven — CC0 — https://polyhaven.com/a/sandy_gravel
+- rusty_corrugated_iron — Poly Haven — CC0 — https://polyhaven.com/a/rusty_corrugated_iron
+- metal_plate — Poly Haven — CC0 — https://polyhaven.com/a/metal_plate
+- rusty_metal_02 — Poly Haven — CC0 — https://polyhaven.com/a/rusty_metal_02
+- weathered_planks — Poly Haven — CC0 — https://polyhaven.com/a/weathered_planks
+- green_metal_rust — Poly Haven — CC0 — https://polyhaven.com/a/green_metal_rust
+- dense_sand — Poly Haven — CC0 — https://polyhaven.com/a/dense_sand
+- denim_fabric_04 — Poly Haven — CC0 — https://polyhaven.com/a/denim_fabric_04
+- coast_sand_rocks_02 — Poly Haven — CC0 — https://polyhaven.com/a/coast_sand_rocks_02
+- moonless_golf — Poly Haven — CC0 — https://polyhaven.com/a/moonless_golf
