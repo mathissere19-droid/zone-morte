@@ -74,5 +74,11 @@ export const CONFIG = {
     exposition: 1.1, intensiteEnvironnement: 0.35, intensiteFond: 0.25,
     bloom: { force: 0.6, rayon: 0.4, seuil: 0.85 },
     finition: { grain: 0.06, vignette: 0.35, aberration: 0.0015, froid: [0.92, 1.0, 1.08] },
+    lumieres: {
+      projecteur: { couleur: 0xdfe8ff, intensite: 150, portee: 35, angle: 0.6, penombre: 0.5, ombre: 1024 },
+      gyrophare: { couleur: 0xff2020, intensite: 80, portee: 30, toursParSeconde: 2 },
+      lune: { couleur: 0x8fa6d8, intensite: 0.8, ombre: 2048 },
+      lampe: { couleur: 0xfff1d6, intensite: 40, portee: 25, angle: 0.45, penombre: 0.6 },
+    },
   },
 };

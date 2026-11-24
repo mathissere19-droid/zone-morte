@@ -369,3 +369,39 @@ scenarios.push({
     verifier(await page.evaluate(() => document.querySelector('#choix-qualite-pause button.choisi')?.dataset.qualite) === 'basse', 'bouton de qualité marqué');
   },
 });
+scenarios.push({
+  nom: 'lampe torche (F)',
+  async executer(page, verifier) {
+    await page.evaluate(() => { window.__jeu.demarrerPartie('recrue'); window.__jeu.joueur.vie.pv = 1e9; });
+    const basculer = async (attendu) => {
+      await page.evaluate(() => window.__jeu.entrees.appuis.add('KeyF'));
+      await page.waitForFunction((a) => window.__jeu.lampe.allumee === a, attendu, { timeout: 10000 }).catch(() => {});
+      return page.evaluate(() => window.__jeu.lampe.allumee);
+    };
+    verifier(await page.evaluate(() => window.__jeu.lampe.allumee) === false, 'lampe éteinte au départ');
+    verifier(await basculer(true) === true, 'F allume la lampe');
+    verifier(await page.evaluate(() => window.__jeu.lampe.lumiere.intensity > 0), 'la lampe éclaire');
+    verifier(await basculer(false) === false, 'F éteint la lampe');
+  },
+});
+scenarios.push({
+  nom: 'projecteurs et gyrophare selon la qualité',
+  async executer(page, verifier, attendre) {
+    const etat = () => page.evaluate(() => {
+      const c = window.__jeu.carte;
+      return { visibles: c.projecteurs.filter((p) => p.lumiere.visible).length, ombres: c.projecteurs.some((p) => p.lumiere.castShadow),
+        gyro: c.gyrophare.lumiere.rotation?.y ?? 0, lune: window.__jeu.lune.castShadow };
+    });
+    let e = await etat();
+    verifier(e.visibles === 2 && !e.ombres && !e.lune, `Basse : 2 projecteurs sans ombre (${JSON.stringify(e)})`);
+    await page.evaluate(() => window.__jeu.changerQualite('haute'));
+    await attendre(500);
+    e = await etat();
+    verifier(e.visibles === 4 && e.ombres && e.lune, `Haute : 4 projecteurs, ombres, lune (${JSON.stringify(e)})`);
+    const cible1 = await page.evaluate(() => window.__jeu.carte.gyrophare.lumiere.target.position.x);
+    await attendre(700);
+    const cible2 = await page.evaluate(() => window.__jeu.carte.gyrophare.lumiere.target.position.x);
+    verifier(cible1 !== cible2, 'le gyrophare tourne');
+    await page.evaluate(() => window.__jeu.changerQualite('basse'));
+  },
+});

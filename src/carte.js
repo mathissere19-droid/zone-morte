@@ -56,6 +56,8 @@ export function construireCarte(scene) {
     depart: { x: -5, z: 5 },
     obstaclesVisibles: [],
     lumieresVacillantes: [],
+    projecteurs: [],
+    gyrophare: null,
     surChangement: null,
   };
 
@@ -142,6 +144,27 @@ export function construireCarte(scene) {
     return l;
   }
 
+  // Projecteur sur mât : SpotLight orienté vers `cible` ; rang = ordre d'allumage selon la qualité
+  const matAmpoule = new THREE.MeshBasicMaterial({ color: 0xf4f8ff });
+  function projecteur(x, z, h, cible, rang) {
+    const P = CONFIG.rendu.lumieres.projecteur;
+    boite(x - 0.15, x + 0.15, z - 0.15, z + 0.15, 0, h, mats.metal);
+    const tete = new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.35, 0.5), mats.metal);
+    tete.position.set(x, h + 0.1, z);
+    tete.lookAt(cible.x, 0, cible.z);
+    groupe.add(tete);
+    const verre = new THREE.Mesh(new THREE.PlaneGeometry(0.6, 0.28), matAmpoule);
+    verre.position.set(0, 0, 0.26);
+    tete.add(verre);
+    const l = new THREE.SpotLight(P.couleur, P.intensite, P.portee, P.angle, P.penombre, 1.6);
+    l.position.set(x, h, z);
+    l.target.position.set(cible.x, 0, cible.z);
+    l.shadow.mapSize.set(P.ombre, P.ombre);
+    l.shadow.bias = -0.0004;
+    groupe.add(l, l.target);
+    carte.projecteurs.push({ lumiere: l, verre, rang });
+  }
+
   // ---------- Sols ----------
   sol(-60, 80, -80, 60, mats.dehors, 0);
   sol(-18, 14, -12, 18, mats.asphalte);
@@ -188,8 +211,8 @@ export function construireCarte(scene) {
   boite(-14, -12.8, -2, -0.8, 0, 2.4, mats.bois);
   boite(8, 9.2, 10, 11.2, 0, 1.2, mats.rouille);           // barils
   boite(9.4, 10.6, 10, 11.2, 0, 1.2, mats.rouille);
-  boite(0, 0.3, 0, 0.3, 0, 7, mats.metal);                 // mât de projecteur
-  lumiere(0.15, 7, 0.15, 0xdfe8ff, 60, 30);
+  projecteur(0.15, 0.15, 7, { x: -6, z: 8 }, 0);          // mâts de projecteurs
+  projecteur(-12, -9, 6, { x: -4, z: -2 }, 2);
   lumiere(-16, 3.5, 16, 0xffb070, 12, 14, true);
   murArme('mitraillette', -18 + EP / 2, 4, 1, 0);
   murArme('revolver', -8, 18 - EP / 2, 0, -1);        // mur sud de la cour
@@ -205,6 +228,7 @@ export function construireCarte(scene) {
   boite(2, 4, -33, -31, 0, 1.4, mats.bois);
   boite(-17.5, 7.5, -35.5, -34, 3, 3.2, mats.metal, { collision: false, nav: false, zombies: false }); // passerelle
   lumiere(-5, 7, -24, 0xffe0b0, 30, 26, true);
+  projecteur(-15, -14.5, 6, { x: -6, z: -24 }, 3);
   murArme('pompe', -18 + EP / 2, -24, 1, 0);
   const caisse = boite(-1, 1, -34.5, -33.5, 0, 1, mats.caisse, { nav: true });
   carte.caisse = { position: new THREE.Vector3(0, 1, -33), mesh: caisse.mesh };
@@ -249,7 +273,18 @@ export function construireCarte(scene) {
   }
   boite(12, 15, -32, -29, 0, 2.5, mats.rouille);           // conteneur
   boite(16, 18, -18, -16, 0, 1, mats.sable);
-  lumiere(28, 10, -28, 0xff2020, 15, 20, true);
+  projecteur(18, -20, 7, { x: 24, z: -28 }, 1);
+  // gyrophare rouge au sommet de la tour
+  {
+    const G = CONFIG.rendu.lumieres.gyrophare;
+    const corps = new THREE.Mesh(new THREE.CylinderGeometry(0.25, 0.25, 0.4, 12), new THREE.MeshBasicMaterial({ color: 0xff3030 }));
+    corps.position.set(28, 14, -28);
+    groupe.add(corps);
+    const l = new THREE.SpotLight(G.couleur, G.intensite, G.portee, 0.35, 0.4, 1.6);
+    l.position.set(28, 14, -28);
+    groupe.add(l, l.target);
+    carte.gyrophare = { lumiere: l, mesh: corps, angle: 0 };
+  }
 
   return carte;
 }
@@ -287,7 +322,22 @@ export function fermerPortes(carte) {
   carte.surChangement?.();
 }
 
+// Projecteurs allumés et ombres selon le niveau de qualité (parametresQualite)
+export function appliquerQualiteCarte(carte, p) {
+  for (const pr of carte.projecteurs) {
+    pr.lumiere.visible = pr.rang < p.projecteurs;
+    pr.verre.visible = pr.lumiere.visible;
+    pr.lumiere.castShadow = p.ombres !== 'non';
+  }
+}
+
 export function majCarte(carte, dt) {
+  const g = carte.gyrophare;
+  if (g) {
+    g.angle += dt * CONFIG.rendu.lumieres.gyrophare.toursParSeconde * Math.PI * 2;
+    g.lumiere.target.position.set(28 + Math.cos(g.angle) * 12, 4, -28 + Math.sin(g.angle) * 12);
+    g.mesh.rotation.y = g.angle;
+  }
   for (const v of carte.lumieresVacillantes) {
     v.t += dt;
     const bruit = Math.sin(v.t * 13) * Math.sin(v.t * 7.3) > 0.85 ? 0.15 : 1;

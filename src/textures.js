@@ -2,12 +2,13 @@
 // Ce module ne touche pas au DOM au chargement : le catalogue est lu par l'outil de téléchargement (Node).
 import * as THREE from 'three';
 
-// clé de `mats` (carte.js) → texture Poly Haven ; taille = mètres couverts par une répétition
+// clé de `mats` (carte.js) → texture Poly Haven ; taille = mètres couverts par une répétition ;
+// interieur = surface surtout à couvert : reflète moins le ciel
 export const CATALOGUE_TEXTURES = {
   asphalte:    { id: 'worn_asphalt', taille: 4 },
-  beton:       { id: 'concrete_wall_008', taille: 3 },
-  betonSombre: { id: 'dirty_concrete', taille: 3 },
-  solHangar:   { id: 'hangar_concrete_floor', taille: 4 },
+  beton:       { id: 'concrete_wall_004', taille: 4 },
+  betonSombre: { id: 'concrete_wall_006', taille: 3, interieur: true },
+  solHangar:   { id: 'hangar_concrete_floor', taille: 4, interieur: true },
   sable:       { id: 'sandy_gravel', taille: 3 },
   tole:        { id: 'rusty_corrugated_iron', taille: 2, metal: true },
   metal:       { id: 'metal_plate', taille: 1.5, metal: true },
@@ -79,6 +80,7 @@ export async function appliquerTextures(mats, renderer) {
       mat.roughness = 1;
       mat.metalness = def.metal ? 1 : 0;
     }
+    if (def.interieur) mat.envMapIntensity = 0.3;
     mat.emissive?.set(0x000000);
     mat.needsUpdate = true;
   }));

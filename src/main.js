@@ -2,7 +2,7 @@
 import * as THREE from 'three';
 import { CONFIG } from './config.js';
 import { appliquerTextures } from './textures.js';
-import { construireCarte, mats, majCarte, ouvrirPorte, fermerPortes, hauteurSol } from './carte.js';
+import { construireCarte, mats, appliquerQualiteCarte, majCarte, ouvrirPorte, fermerPortes, hauteurSol } from './carte.js';
 import { creerSuiviBlocage } from './regles/blocage.js';
 import { creerJoueur, entrees, finImageEntrees } from './joueur.js';
 import { creerGrille, marquerObstacles, ligneLibre } from './regles/navigation.js';
@@ -35,9 +35,25 @@ try {
 }
 const { renderer, scene, camera } = rendu;
 scene.add(new THREE.HemisphereLight(0x5a6a8a, 0x1a1a1a, 0.7));
-const lune = new THREE.DirectionalLight(0x8899cc, 0.6);
+const LUM = CONFIG.rendu.lumieres;
+const lune = new THREE.DirectionalLight(LUM.lune.couleur, LUM.lune.intensite);
 lune.position.set(-20, 40, 10);
-scene.add(lune);
+lune.target.position.set(9, 0, -9);
+Object.assign(lune.shadow.camera, { left: -35, right: 35, top: 35, bottom: -35, near: 5, far: 100 });
+lune.shadow.mapSize.set(LUM.lune.ombre, LUM.lune.ombre);
+lune.shadow.bias = -0.0005;
+scene.add(lune, lune.target);
+
+// Lampe torche (F), attachée à la caméra ; éteinte = intensité 0 (évite de recompiler les matériaux)
+const lampe = { allumee: false, lumiere: new THREE.SpotLight(LUM.lampe.couleur, 0, LUM.lampe.portee, LUM.lampe.angle, LUM.lampe.penombre, 1.6) };
+lampe.lumiere.position.set(0.05, -0.05, -0.75); // devant l'arme : elle reste hors du faisceau
+lampe.lumiere.target.position.set(0.05, -0.05, -6);
+lampe.lumiere.shadow.mapSize.set(1024, 1024);
+camera.add(lampe.lumiere, lampe.lumiere.target);
+function basculerLampe(etat = !lampe.allumee) {
+  lampe.allumee = etat;
+  lampe.lumiere.intensity = etat ? LUM.lampe.intensite : 0;
+}
 
 addEventListener('resize', () => rendu.redimensionner());
 
@@ -57,6 +73,11 @@ const surveillancePerf = creerSurveillancePerf();
 
 // ---------- Monde ----------
 const carte = construireCarte(scene);
+rendu.surQualite((p) => {
+  appliquerQualiteCarte(carte, p);
+  lune.castShadow = p.ombres === 'tout';
+  lampe.lumiere.castShadow = p.ombres === 'tout';
+});
 appliquerTextures(mats, renderer);
 const grille = creerGrille({ minX: -18, minZ: -36, largeur: 54, profondeur: 54, taille: 0.5 });
 marquerObstacles(grille, carte.navObstacles);
@@ -221,6 +242,7 @@ const jeu = {
   accelerer(f) { this.vitesseTemps = f; },
   demarrerPartie, mettreEnPause, reprendre, afficherMenu, toucherZombie, entrees,
   get qualite() { return rendu.qualite; },
+  lampe, lune,
   rendu,
   changerQualite,
   tirer: () => armes.tirForce(),
@@ -241,6 +263,7 @@ function demarrerPartie(idDifficulte) {
   armes.reinitialiser(inventaire);
   armes.vider();
   doubles = 0;
+  basculerLampe(false);
   joueur.placer(carte.depart.x, carte.depart.z);
   ui.reinitialiserPoints();
   ui.masquerEcrans();
@@ -325,6 +348,7 @@ function boucle(dtBrut) {
     const i = interactionProche();
     ui.invite(texteInvite(i));
     if (entrees.appuis.has('KeyE')) interagir();
+    if (entrees.appuis.has('KeyF')) basculerLampe();
 
     const a = armeActive(inventaire);
     ui.majHUD({
