@@ -12,7 +12,7 @@ export function creerInterface() {
   }
 
   return {
-    majHUD({ pv, vieMax, munitions, points, vague, doubles, stamina, staminaMax, dispersion, enRechargement }) {
+    majHUD({ pv, vieMax, munitions, grenades, points, vague, doubles, stamina, staminaMax, dispersion, enRechargement }) {
       $('vie-barre').style.width = (100 * pv / vieMax) + '%';
       $('stamina-barre').style.width = (100 * stamina / staminaMax) + '%';
       $('stamina').style.opacity = stamina < staminaMax ? 1 : 0.25;
@@ -20,6 +20,7 @@ export function creerInterface() {
       $('chargeur').textContent = munitions.chargeur;
       $('chargeur').style.color = munitions.chargeur === 0 ? '#ff5050' : '';
       $('reserve').textContent = munitions.reserve;
+      $('grenades').textContent = 'Grenades (G) : ' + grenades;
       $('points-valeur').textContent = points;
       if (dernierPoints !== null && points > dernierPoints) this.gain(points - dernierPoints);
       dernierPoints = points;

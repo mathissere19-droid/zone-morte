@@ -5,7 +5,7 @@ import { reserveMax } from './difficulte.js';
 const nouvelle = (id) => ({ id, chargeur: CONFIG.armes[id].chargeur, reserve: reserveMax(id) });
 
 export function creerInventaire() {
-  return { armes: [nouvelle('pistolet')], active: 0 };
+  return { armes: [nouvelle('pistolet')], active: 0, grenades: CONFIG.grenade.max };
 }
 
 export function armeActive(inv) {
@@ -51,6 +51,17 @@ export function remplir(inv, id) {
 
 export function remplirTout(inv) {
   for (const a of inv.armes) remplir(inv, a.id);
+  rendreGrenades(inv);
+}
+
+export function lancerGrenade(inv) {
+  if (inv.grenades <= 0) return false;
+  inv.grenades--;
+  return true;
+}
+
+export function rendreGrenades(inv) {
+  inv.grenades = CONFIG.grenade.max;
 }
 
 export function munitionsPleines(inv, id) {

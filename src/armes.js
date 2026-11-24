@@ -2,8 +2,9 @@
 import * as THREE from 'three';
 import { CONFIG } from './config.js';
 import { entrees } from './joueur.js';
-import { armeActive, tirer, peutRecharger, recharger, changer } from './regles/inventaire.js';
-import { degatsTir, degatsCouteau, degatsExplosion, degatsExplosionJoueur, dansCone, chaineElectrique, degatsChaine, enflammer } from './regles/combat.js';
+import { armeActive, tirer, peutRecharger, recharger, changer, lancerGrenade } from './regles/inventaire.js';
+import { hauteurSol } from './carte.js';
+import { degatsTir, degatsCouteau, degatsExplosion, degatsExplosionJoueur, dansCone, chaineElectrique, degatsChaine, enflammer, degatsZone } from './regles/combat.js';
 
 const TAILLES = {
   pistolet: [0.06, 0.12, 0.22], mitraillette: [0.07, 0.12, 0.4], pompe: [0.07, 0.1, 0.7],
@@ -53,12 +54,16 @@ export function creerArmes({ camera, scene, inventaire, cibles, obstacles, joueu
   const raycaster = new THREE.Raycaster();
   raycaster.far = 120;
   const etat = {
-    attente: 0, rechargement: 0, changement: 0, couteau: 0,
+    attente: 0, rechargement: 0, changement: 0, couteau: 0, grenade: 0,
     recul: 0, balancement: 0, flash: 0, dispersionActuelle: 0,
     inventaire,
   };
   const impacts = [];
   const grenades = [];
+  const grenadesMain = [];
+  let derniereExplosion = null;
+  const geoGrenade = new THREE.SphereGeometry(0.06, 8, 6);
+  const matGrenade = new THREE.MeshStandardMaterial({ color: 0x3d4a2a, roughness: 0.6, metalness: 0.4 });
   const flammes = [];
   const eclairs = [];
   const geoFlamme = new THREE.SphereGeometry(0.12, 6, 5);
@@ -244,6 +249,59 @@ export function creerArmes({ camera, scene, inventaire, cibles, obstacles, joueu
     if (dgj > 0) surJoueurTouche(dgj);
   }
 
+  function lancerGrenadeMain() {
+    const G = CONFIG.grenade;
+    const dir = camera.getWorldDirection(new THREE.Vector3());
+    dir.y += 0.25; dir.normalize();
+    const m = new THREE.Mesh(geoGrenade, matGrenade);
+    m.position.copy(camera.getWorldPosition(new THREE.Vector3())).addScaledVector(dir, 0.3);
+    scene.add(m);
+    grenadesMain.push({ m, v: dir.multiplyScalar(G.vitesse), t: 0 });
+    etat.grenade = G.delai;
+  }
+
+  function exploserGrenade(position) {
+    const G = CONFIG.grenade;
+    derniereExplosion = { x: position.x, y: position.y, z: position.z };
+    surExplosionVisuelle?.(position);
+    for (const z of zombiesVivants()) {
+      const d = Math.hypot(z.position.x - position.x, z.position.y + 1 - position.y, z.position.z - position.z);
+      const dg = degatsZone(d, G.degats, G.rayon);
+      if (dg > 0) surTouche(z, dg, { tete: false, couteau: false });
+    }
+    const jp = joueur.position;
+    const dj = Math.hypot(jp.x - position.x, jp.y + 1 - position.y, jp.z - position.z);
+    const dgj = degatsZone(dj, G.degatsJoueurMax, G.rayon);
+    if (dgj > 0) surJoueurTouche(dgj);
+  }
+
+  function majGrenadesMain(dt) {
+    for (let i = grenadesMain.length - 1; i >= 0; i--) {
+      const g = grenadesMain[i];
+      g.t += dt;
+      g.v.y -= 9.8 * dt;
+      const pas = g.v.clone().multiplyScalar(dt);
+      const l = pas.length();
+      if (l > 1e-6) {
+        raycaster.set(g.m.position, pas.clone().divideScalar(l));
+        raycaster.far = l + 0.06;
+        const h = raycaster.intersectObjects([...cibles(), ...obstacles()], false)[0];
+        raycaster.far = 120;
+        if (h) { g.v.x *= -0.3; g.v.z *= -0.3; if (g.v.y > 0) g.v.y *= -0.3; } // rebond contre un obstacle
+        else g.m.position.add(pas);
+      }
+      const sol = hauteurSol(g.m.position.x, g.m.position.z) + 0.06;
+      if (g.m.position.y <= sol) {
+        g.m.position.y = sol;
+        if (g.v.y < 0) { g.v.y = -g.v.y * 0.3; g.v.x *= 0.6; g.v.z *= 0.6; }
+      }
+      if (g.t >= CONFIG.grenade.fusee) {
+        exploserGrenade(g.m.position.clone());
+        scene.remove(g.m); grenadesMain.splice(i, 1);
+      }
+    }
+  }
+
   function coupDeCouteau() {
     etat.couteau = CONFIG.couteau.delai;
     const pos = joueur.position;
@@ -264,7 +322,7 @@ export function creerArmes({ camera, scene, inventaire, cibles, obstacles, joueu
     afficherArme();
     const a = armeActive(etat.inventaire);
     const def = CONFIG.armes[a.id];
-    etat.attente -= dt; etat.couteau -= dt; etat.changement -= dt;
+    etat.attente -= dt; etat.couteau -= dt; etat.changement -= dt; etat.grenade -= dt;
     etat.dispersionActuelle = Math.max(0, etat.dispersionActuelle - dt * def.dispersion * 3);
 
     if (actif) {
@@ -282,6 +340,7 @@ export function creerArmes({ camera, scene, inventaire, cibles, obstacles, joueu
       }
 
       if (entrees.appuis.has('KeyV') && etat.couteau <= 0) coupDeCouteau();
+      if (entrees.appuis.has('KeyG') && etat.grenade <= 0 && lancerGrenade(etat.inventaire)) lancerGrenadeMain();
 
       const veutTirer = def.cadence === 'semi' || a.id === 'pompe' ? entrees.clics > 0 : entrees.gauche;
       if (veutTirer && etat.attente <= 0 && etat.rechargement <= 0 && etat.changement <= 0 && etat.couteau <= CONFIG.couteau.delai - 0.3) {
@@ -306,6 +365,7 @@ export function creerArmes({ camera, scene, inventaire, cibles, obstacles, joueu
       } else g.m.position.add(pas);
     }
 
+    majGrenadesMain(dt);
     for (let i = flammes.length - 1; i >= 0; i--) {
       const f = flammes[i];
       f.t -= dt;
@@ -353,6 +413,8 @@ export function creerArmes({ camera, scene, inventaire, cibles, obstacles, joueu
     etat, majArmes,
     tirForce: () => tir(),
     get enRechargement() { return etat.rechargement > 0; },
+    get derniereExplosion() { return derniereExplosion; },
+    vider() { for (const g of grenadesMain) scene.remove(g.m); grenadesMain.length = 0; derniereExplosion = null; },
     get dispersion() { return CONFIG.armes[armeActive(etat.inventaire).id].dispersion + etat.dispersionActuelle; },
     reinitialiser(inv) { etat.inventaire = inv; etat.rechargement = 0; idCourant = null; },
   };

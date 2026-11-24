@@ -70,3 +70,8 @@ export function majBrulure(z, dt) {
   b.t -= dt;
   return d;
 }
+
+// Dégâts d'explosion qui diminuent linéairement jusqu'au bord du rayon.
+export function degatsZone(distance, max, rayon) {
+  return distance <= rayon ? Math.round(max * (1 - distance / rayon)) : 0;
+}

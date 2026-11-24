@@ -50,6 +50,8 @@ export const CONFIG = {
 
   vagues: { pause: 10, premierePause: 3, maxVivants: 24, distanceMinApparition: 8 },
 
+  grenade: { max: 2, degats: 300, rayon: 5, degatsJoueurMax: 50, fusee: 2, vitesse: 14, delai: 0.8 },
+
   couteau: { degats: 150, portee: 1.6, delai: 0.6 },
 
   zombie: {

@@ -55,3 +55,4 @@ html, body { margin: 0; height: 100%; overflow: hidden; background: #05070c; col
 #choix-difficulte button[data-difficulte="cauchemar"].choisi { background: #5a1010; }
 .record-diff { font: 400 12px/1 "Segoe UI", sans-serif; color: #f2d27a; min-height: 12px; }
 #difficulte-fin { color: #8d8a80; margin: 0; }
+#grenades { font: 600 13px/1.4 "Segoe UI", sans-serif; color: #b9c48a; }

@@ -248,3 +248,35 @@ scenarios.push({
     verifier(r.pv < 5000 && r.brule, 'zombie touché et en feu (' + JSON.stringify(r) + ')');
   },
 });
+scenarios.push({
+  nom: 'grenade à main (G)',
+  async executer(page, verifier, attendre) {
+    await page.evaluate(() => {
+      const j = window.__jeu;
+      j.demarrerPartie('soldat'); j.partie.chrono = 1e9; j.joueur.vie.pv = 1e9;
+      j.joueur.placer(-2, 4); j.camera.rotation.set(-0.35, 0, 0);
+      window.__g = j.zombies.faireApparaitre({ x: -2, z: 0 }, 1); window.__g.emergence = 0; window.__g.vitesse = 0; window.__g.pv = 1000;
+      j.entrees.appuis.add('KeyG');
+    });
+    await page.waitForFunction(() => window.__jeu.armes.derniereExplosion, null, { timeout: 20000 });
+    const r = await page.evaluate(() => ({ pv: window.__g.pv, n: window.__jeu.inventaire.grenades, hud: document.getElementById('grenades').textContent }));
+    verifier(r.pv < 1000, 'le zombie est blessé par la grenade (pv ' + r.pv + ')');
+    verifier(r.n === 1, 'il reste 1 grenade (' + r.n + ')');
+    verifier(r.hud.includes('1'), 'HUD grenades à jour (' + r.hud + ')');
+  },
+});
+scenarios.push({
+  nom: 'grenade contre un mur : ne le traverse pas',
+  async executer(page, verifier, attendre) {
+    await page.evaluate(() => {
+      const j = window.__jeu;
+      j.zombies.vider(); j.joueur.vie.pv = 1e9;
+      j.joueur.placer(-16.5, 0); j.camera.rotation.set(0, Math.PI / 2, 0); // regarde vers -x (mur ouest x = -18)
+      j.armes.vider();
+      j.entrees.appuis.add('KeyG');
+    });
+    await page.waitForFunction(() => window.__jeu.armes.derniereExplosion, null, { timeout: 20000 });
+    const p = await page.evaluate(() => window.__jeu.armes.derniereExplosion);
+    verifier(p && p.x > -17.8 && p.y >= -0.01 && p.y < 3, 'explosion du bon côté du mur et au sol (' + JSON.stringify(p) + ')');
+  },
+});

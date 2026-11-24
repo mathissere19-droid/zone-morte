@@ -15,7 +15,7 @@ import {
 import { subir, majVie, estMort } from './regles/vie.js';
 import { IDS_DIFFICULTE, choisirDifficulte, difficulteActive, degatsRecus } from './regles/difficulte.js';
 import { creerPortefeuille, gainCoup, crediter, payer, tirageCaisse, acheterMur } from './regles/economie.js';
-import { creerInventaire, armeActive, ajouterArme, remplirTout } from './regles/inventaire.js';
+import { creerInventaire, armeActive, ajouterArme, remplirTout, rendreGrenades } from './regles/inventaire.js';
 
 const modeTest = new URLSearchParams(location.search).has('test');
 const ui = creerInterface();
@@ -203,7 +203,7 @@ const jeu = {
   get inventaire() { return inventaire; },
   vitesseTemps: 1,
   accelerer(f) { this.vitesseTemps = f; },
-  demarrerPartie, mettreEnPause, reprendre, afficherMenu, toucherZombie,
+  demarrerPartie, mettreEnPause, reprendre, afficherMenu, toucherZombie, entrees,
   tirer: () => armes.tirForce(),
   interagir,
 };
@@ -220,6 +220,7 @@ function demarrerPartie(idDifficulte) {
   portefeuille = creerPortefeuille();
   inventaire = creerInventaire();
   armes.reinitialiser(inventaire);
+  armes.vider();
   doubles = 0;
   joueur.placer(carte.depart.x, carte.depart.z);
   ui.reinitialiserPoints();
@@ -282,7 +283,10 @@ function boucle(dtBrut) {
   if (jeu.etat === 'partie') {
     joueur.majJoueur(dt, carte.aabbs);
     majVie(joueur.vie, dt, difficulteActive().delaiRegen);
-    if (majPartie(partie, dt) === 'vagueCommence') ui.annonce('VAGUE ' + partie.vague, 3);
+    if (majPartie(partie, dt) === 'vagueCommence') {
+      ui.annonce('VAGUE ' + partie.vague, 3);
+      rendreGrenades(inventaire);
+    }
     delaiApparition -= dt;
     if (delaiApparition <= 0 && peutFaireApparaitre(partie)) {
       const pt = choisirPointApparition(pointsApparitionActifs(), joueur.position, pointVisible, Math.random);
@@ -302,7 +306,7 @@ function boucle(dtBrut) {
     const a = armeActive(inventaire);
     ui.majHUD({
       pv: joueur.vie.pv, vieMax: CONFIG.joueur.vieMax,
-      munitions: { nom: CONFIG.armes[a.id].nom, chargeur: a.chargeur, reserve: a.reserve },
+      munitions: { nom: CONFIG.armes[a.id].nom, chargeur: a.chargeur, reserve: a.reserve }, grenades: inventaire.grenades,
       points: portefeuille.points, vague: partie.vague, doubles,
       stamina: joueur.stamina, staminaMax: CONFIG.joueur.staminaMax,
       dispersion: armes.dispersion * (joueur.vise ? 0.4 : 1), enRechargement: armes.enRechargement,

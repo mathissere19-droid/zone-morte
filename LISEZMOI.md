@@ -18,6 +18,7 @@ Python doit être installé (c'est le cas sur ce PC).
 | Recharger | R |
 | Acheter / ouvrir | E |
 | Couteau | V |
+| Grenade | G |
 | Changer d'arme | 1, 2 ou molette |
 | Pause | Échap |
 
