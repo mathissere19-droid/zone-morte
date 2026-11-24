@@ -8,6 +8,8 @@ import { degatsTir, degatsCouteau, degatsExplosion, degatsExplosionJoueur } from
 const TAILLES = {
   pistolet: [0.06, 0.12, 0.22], mitraillette: [0.07, 0.12, 0.4], pompe: [0.07, 0.1, 0.7],
   assaut: [0.07, 0.13, 0.65], precision: [0.07, 0.13, 0.9], mitrailleuse: [0.1, 0.16, 0.8], lanceGrenades: [0.12, 0.12, 0.5],
+  revolver: [0.06, 0.13, 0.26], pmCompact: [0.06, 0.12, 0.3], semiAuto: [0.07, 0.13, 0.85], pompeAuto: [0.09, 0.13, 0.7],
+  arbalete: [0.08, 0.08, 0.6],
 };
 const matArme = new THREE.MeshStandardMaterial({ color: 0x2a2b2d, roughness: 0.5, metalness: 0.7 });
 const matRare = new THREE.MeshStandardMaterial({ color: 0x8a6a20, roughness: 0.35, metalness: 0.9 });
@@ -26,6 +28,10 @@ function modeleArme(id) {
   if (p > 0.3) {
     const crosse = new THREE.Mesh(new THREE.BoxGeometry(l * 0.9, h * 0.9, 0.22), matCrosse);
     crosse.position.set(0, -h * 0.1, p * 0.5 + 0.1); g.add(crosse);
+  }
+  if (id === 'arbalete') { // arc à l'avant
+    const arc = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.03, 0.04), mat);
+    arc.position.set(0, h * 0.3, -p * 0.75); g.add(arc);
   }
   g.userData.bouche = new THREE.Vector3(0, h * 0.2, -p * 0.95);
   g.traverse((o) => { if (o.isMesh) o.renderOrder = 10; });
@@ -142,8 +148,8 @@ export function creerArmes({ camera, scene, inventaire, cibles, obstacles, joueu
       for (const [z, t] of total) surTouche(z, t.degats, { tete: t.tete, couteau: false });
     }
     etat.attente = def.cadence === 'semi' ? 60 / CONFIG.semiCadenceMax : 60 / def.cadence;
-    if (a.id === 'pompe') etat.attente = 60 / def.cadence;
-    const force = { pompe: 0.06, precision: 0.08, lanceGrenades: 0.05, pistolet: 0.025 }[a.id] ?? 0.012;
+    if (a.id === 'pompe') etat.attente = 60 / def.cadence; // pompe : semi mais cadence propre
+    const force = { pompe: 0.06, pompeAuto: 0.045, precision: 0.08, semiAuto: 0.04, revolver: 0.05, arbalete: 0.02, lanceGrenades: 0.05, pistolet: 0.025 }[a.id] ?? 0.012;
     appliquerRecul(force * (joueur.vise ? 0.6 : 1));
     etat.recul = Math.min(etat.recul + force * 2, 0.2);
     etat.dispersionActuelle = Math.min(etat.dispersionActuelle + def.dispersion * 0.3, def.dispersion * 2);

@@ -187,6 +187,7 @@ export function construireCarte(scene) {
   lumiere(0.15, 7, 0.15, 0xdfe8ff, 60, 30);
   lumiere(-16, 3.5, 16, 0xffb070, 12, 14, true);
   murArme('mitraillette', -18 + EP / 2, 4, 1, 0);
+  murArme('revolver', -8, 18 - EP / 2, 0, -1);        // mur sud de la cour
 
   // ---------- Hangar ----------
   const toit = new THREE.Mesh(new THREE.BoxGeometry(26, 0.3, 24), mats.tole);
@@ -216,6 +217,7 @@ export function construireCarte(scene) {
   lumiere(29, 2.4, 14, 0x9fffd0, 8, 12, true);
   lumiere(29, 2.4, -6, 0xff6040, 6, 10, true);
   murArme('assaut', 36 - EP / 2, 4, -1, 0);
+  murArme('semiAuto', 20, -36 + EP / 2, 0, 1);         // mur nord, zone de la tour
 
   // ---------- Tour radio ----------
   boite(PLATEFORME.minX, PLATEFORME.maxX, PLATEFORME.minZ, PLATEFORME.maxZ, 0, PLATEFORME.h, mats.betonSombre, { zombies: false, nav: false });

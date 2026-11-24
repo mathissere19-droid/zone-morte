@@ -25,6 +25,11 @@ export const CONFIG = {
     assaut:        { nom: "Fusil d'assaut",      degats: 50,  cadence: 600,    chargeur: 30,  reserve: 180, rechargement: 2.2, dispersion: 0.02,  rare: false },
     precision:     { nom: 'Fusil de précision lourd', degats: 400, cadence: 'semi', chargeur: 5, reserve: 30, rechargement: 3.0, dispersion: 0.002, rare: true, perce: 3 },
     mitrailleuse:  { nom: 'Mitrailleuse lourde', degats: 60,  cadence: 650,    chargeur: 100, reserve: 300, rechargement: 4.5, dispersion: 0.035, rare: true },
+    revolver:      { nom: 'Revolver',            degats: 110, cadence: 'semi', chargeur: 6,   reserve: 36,  rechargement: 2.0, dispersion: 0.01,  rare: false, multTete: 4 },
+    pmCompact:     { nom: 'Pistolet-mitrailleur compact', degats: 28, cadence: 1000, chargeur: 32, reserve: 192, rechargement: 1.8, dispersion: 0.045, rare: false },
+    semiAuto:      { nom: 'Fusil semi-automatique', degats: 140, cadence: 'semi', chargeur: 10, reserve: 60, rechargement: 2.4, dispersion: 0.006, rare: false, perce: 2 },
+    pompeAuto:     { nom: 'Fusil à pompe automatique', degats: 26, plombs: 8, cadence: 240, chargeur: 12, reserve: 48, rechargement: 3.0, dispersion: 0.09, rare: false },
+    arbalete:      { nom: 'Arbalète',            degats: 900, cadence: 'semi', chargeur: 1,   reserve: 25,  rechargement: 1.2, dispersion: 0.003, rare: false, perce: 3, bruit: 5 },
     lanceGrenades: { nom: 'Lance-grenades',      degats: 300, cadence: 'semi', chargeur: 1,   reserve: 20,  rechargement: 2.0, dispersion: 0.005, rare: true, rayonExplosion: 4 },
   },
   semiCadenceMax: 400,
@@ -33,9 +38,9 @@ export const CONFIG = {
   pompeChute: { debut: 5, fin: 20, minimum: 0.3 },
   explosionDegatsJoueur: 50,
 
-  prixMurs: { mitraillette: 1000, pompe: 1500, assaut: 2000 },
+  prixMurs: { mitraillette: 1000, pompe: 1500, assaut: 2000, revolver: 750, semiAuto: 1750 },
   prixPortes: { hangar: 750, bunker: 1000, tour: 1250 },
-  caisse: { prix: 950, chanceRare: 0.10, communes: ['mitraillette', 'pompe', 'assaut', 'pistolet'] },
+  caisse: { prix: 950, chanceRare: 0.10, communes: ['pistolet', 'mitraillette', 'pompe', 'assaut', 'pmCompact', 'pompeAuto', 'arbalete'] },
 
   bonus: { chance: 0.05, maxParVague: 4, duree: 25, clignote: 5, pointsDoublesDuree: 30, explosionPoints: 400, rayonRamassage: 1.2 },
 

@@ -162,3 +162,39 @@ scenarios.push({
     await page.evaluate(() => { localStorage.removeItem('zoneMorte.record'); window.__jeu.demarrerPartie('soldat'); });
   },
 });
+scenarios.push({
+  nom: 'nouvelles armes : murs d\'achat et tir',
+  async executer(page, verifier, attendre) {
+    const r = await page.evaluate(async () => {
+      const j = window.__jeu; const C = await import('/src/carte.js');
+      const I = await import('/src/regles/inventaire.js');
+      j.demarrerPartie('soldat'); j.partie.chrono = 1e9;
+      for (const p of j.carte.portes) C.ouvrirPorte(j.carte, p);
+      const achats = {};
+      for (const id of ['revolver', 'semiAuto']) {
+        const m = j.carte.mursArmes.find((x) => x.armeId === id);
+        if (!m) { achats[id] = 'mur absent'; continue; }
+        j.joueur.placer(m.position.x, m.position.z);
+        j.portefeuille.points = 5000;
+        j.interagir();
+        achats[id] = j.inventaire.armes.some((a) => a.id === id);
+      }
+      const coinces = j.carte.mursArmes.filter((m) => j.carte.aabbs.some((b) => (b.maxY ?? 3) > 0.35 &&
+        m.position.x + 0.35 > b.minX && m.position.x - 0.35 < b.maxX && m.position.z + 0.35 > b.minZ && m.position.z - 0.35 < b.maxZ)).map((m) => m.armeId);
+      j.joueur.placer(-2, 4);
+      return { achats, coinces };
+    });
+    verifier(r.achats.revolver === true && r.achats.semiAuto === true, 'revolver et fusil semi-auto achetés au mur (' + JSON.stringify(r.achats) + ')');
+    verifier(r.coinces.length === 0, 'aucun mur d\'arme dans un obstacle (' + r.coinces.join(', ') + ')');
+    for (const id of ['revolver', 'pmCompact', 'semiAuto', 'pompeAuto', 'arbalete']) {
+      await page.evaluate(async (id) => {
+        const I = await import('/src/regles/inventaire.js');
+        I.ajouterArme(window.__jeu.inventaire, id);
+      }, id);
+      await attendre(450);
+      for (let k = 0; k < 2; k++) { await page.evaluate(() => window.__jeu.tirer()); await attendre(120); }
+    }
+    const ch = await page.evaluate(() => window.__jeu.inventaire.armes.map((a) => a.id + ':' + a.chargeur));
+    verifier(ch.length === 2, 'tirs avec les 5 armes sans erreur (' + ch.join(' ') + ')');
+  },
+});

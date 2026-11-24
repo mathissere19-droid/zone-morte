@@ -94,3 +94,14 @@ test('vie et régénération', () => {
   assert.equal(v.pv, 0);
   assert.ok(estMort(v));
 });
+
+test('dégâts des nouvelles armes classiques', () => {
+  assert.equal(degatsTir('revolver', 'tete', 5), 440);
+  assert.equal(degatsTir('pompeAuto', 'corps', 20), Math.round(26 * 0.3));
+  assert.equal(degatsTir('pompeAuto', 'tete', 0), 52);
+  assert.equal(degatsTir('arbalete', 'corps', 30), 900);
+});
+
+test('caisse : les nouvelles armes communes peuvent sortir', () => {
+  assert.equal(tirageCaisse(seq([0.5, 0.99]), []), 'arbalete');
+});
