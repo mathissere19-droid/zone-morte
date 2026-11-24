@@ -19,6 +19,7 @@ Python doit être installé (c'est le cas sur ce PC).
 | Acheter / ouvrir | E |
 | Couteau | V |
 | Grenade | G |
+| Lampe torche | F |
 | Changer d'arme | 1, 2 ou molette |
 | Pause | Échap |
 
@@ -34,9 +35,18 @@ Python doit être installé (c'est le cas sur ce PC).
 - Dans la caisse : pistolet-mitrailleur compact, fusil à pompe automatique, arbalète… et parfois une arme rare : fusil de précision lourd, mitrailleuse lourde, lance-grenades, **lance-flammes**, **fusil électrique**.
 - 2 grenades (G), rendues au début de chaque vague.
 
+## Graphismes
+Qualité **Basse / Moyenne / Haute** à choisir sur l'écran d'accueil ou en pause (le choix est mémorisé) :
+- **Basse** : moins de particules, pas d'ombres — pour les PC modestes.
+- **Moyenne** : ombres des projecteurs.
+- **Haute** : toutes les ombres (lune comprise), 4 projecteurs, occlusion ambiante.
+
+Si le jeu rame, il propose de baisser la qualité. Textures et ciel : Poly Haven (CC0), voir `CREDITS.md`.
+
 ## Régler le jeu
 Tous les chiffres (prix, dégâts, vie, vagues…) sont dans `src/config.js`.
 
 ## Pour le développement
 - `npm test` : tests des règles
-- `npm run fumee` : lance le jeu dans Edge sans fenêtre et vérifie qu'il marche
+- `npm run fumee` : lance le jeu dans Edge sans fenêtre et vérifie qu'il marche (en qualité Basse)
+- `node outils/capture.mjs haute <x> <z> <angle> <fichier.png> [lampe] [effets]` : capture d'écran pour juger le rendu
