@@ -7,7 +7,8 @@ export const scenarios = [
       await attendre(300);
       verifier(await page.evaluate(() => window.__jeu.etat) === 'partie', 'état partie');
       await page.evaluate(() => { window.__jeu.joueur.position.x += 100; });
-      await attendre(200);
+      // rendu logiciel lent : attendre quelques images plutôt qu'une durée fixe
+      await page.waitForFunction(() => Math.abs(window.__jeu.joueur.position.x) <= 40, null, { timeout: 10000 }).catch(() => {});
       const x = await page.evaluate(() => window.__jeu.joueur.position.x);
       verifier(x >= -40 && x <= 40, 'le joueur reste dans la carte (x=' + x.toFixed(2) + ')');
       await page.evaluate(() => window.__jeu.joueur.placer(-2, 4));
@@ -345,5 +346,26 @@ scenarios.push({
     }
     await page.evaluate(async () => { (await import('/src/config.js')).CONFIG.joueur.vieMax = 100; window.__jeu.accelerer(1); });
     verifier(v >= 6, 'la vague 6 démarre (vague ' + v + ')');
+  },
+});
+scenarios.push({
+  nom: 'ciel HDRI chargé',
+  async executer(page, verifier) {
+    await page.waitForFunction(() => window.__jeu.scene.environment !== null, null, { timeout: 15000 }).catch(() => {});
+    verifier(await page.evaluate(() => window.__jeu.scene.environment !== null), 'environnement HDRI présent');
+  },
+});
+scenarios.push({
+  nom: 'qualité : bascule Basse → Haute → Moyenne en pleine partie',
+  async executer(page, verifier, attendre) {
+    verifier(await page.evaluate(() => window.__jeu.qualite) === 'basse', 'Basse par défaut en mode test');
+    await page.evaluate(() => { window.__jeu.demarrerPartie('recrue'); window.__jeu.joueur.vie.pv = 1e9; });
+    for (const q of ['haute', 'moyenne', 'basse']) {
+      await page.evaluate((id) => window.__jeu.changerQualite(id), q);
+      await attendre(1000);
+      const r = await page.evaluate(() => ({ q: window.__jeu.qualite, o: window.__jeu.renderer.shadowMap.enabled }));
+      verifier(r.q === q && r.o === (q !== 'basse'), `qualité ${q} active (ombres ${r.o})`);
+    }
+    verifier(await page.evaluate(() => document.querySelector('#choix-qualite-pause button.choisi')?.dataset.qualite) === 'basse', 'bouton de qualité marqué');
   },
 });

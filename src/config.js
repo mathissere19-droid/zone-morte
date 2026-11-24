@@ -60,4 +60,19 @@ export const CONFIG = {
     recalculChemin: 0.5, distanceDirecte: 6,
     antiBlocage: { deplacementMin: 0.3, duree: 8, distanceMin: 3 },
   },
+
+  // Niveaux de qualité graphique (choix mémorisé). ombres : 'non' | 'projecteurs' | 'tout'
+  qualite: {
+    basse:   { nom: 'Basse',   resolution: 0.7, ombres: 'non',         ssao: false, particules: 0.4, projecteurs: 2 },
+    moyenne: { nom: 'Moyenne', resolution: 1,   ombres: 'projecteurs', ssao: false, particules: 1,   projecteurs: 2 },
+    haute:   { nom: 'Haute',   resolution: 1,   ombres: 'tout',        ssao: true,  particules: 1,   projecteurs: 4 },
+    perf: { seuil: 40, duree: 5 },
+  },
+
+  rendu: {
+    brouillard: { couleur: 0x0b0f1a, densite: 0.028 },
+    exposition: 1.1, intensiteEnvironnement: 0.35, intensiteFond: 0.25,
+    bloom: { force: 0.6, rayon: 0.4, seuil: 0.85 },
+    finition: { grain: 0.06, vignette: 0.35, aberration: 0.0015, froid: [0.92, 1.0, 1.08] },
+  },
 };

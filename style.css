@@ -56,3 +56,8 @@ html, body { margin: 0; height: 100%; overflow: hidden; background: #05070c; col
 .record-diff { font: 400 12px/1 "Segoe UI", sans-serif; color: #f2d27a; min-height: 12px; }
 #difficulte-fin { color: #8d8a80; margin: 0; }
 #grenades { font: 600 13px/1.4 "Segoe UI", sans-serif; color: #b9c48a; }
+
+.choix-qualite { display: flex; gap: 6px; align-items: center; justify-content: center; font: 400 14px/1 "Segoe UI", sans-serif; color: #b8b4a8; }
+.choix-qualite span { margin-right: 6px; }
+.choix-qualite button { background: #2a2a2a; font-size: 14px; padding: 6px 14px; outline: 2px solid transparent; }
+.choix-qualite button.choisi { background: #4a4a4a; outline-color: #f2d27a; }

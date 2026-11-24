@@ -68,6 +68,9 @@ export function creerInterface() {
         b.querySelector('.record-diff').textContent = records[id] > 0 ? 'Record : vague ' + records[id] : '';
       }
     },
+    marquerQualite(id) {
+      for (const b of document.querySelectorAll('.choix-qualite button')) b.classList.toggle('choisi', b.dataset.qualite === id);
+    },
     ecranPause() { montrer('ecran-pause'); $('hud').classList.remove('cache'); },
     ecranFin(stats, record, nouveauRecord, nomDifficulte) {
       montrer('ecran-fin');

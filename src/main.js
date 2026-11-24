@@ -10,6 +10,8 @@ import { creerGestionnaireZombies } from './zombies.js';
 import { creerArmes } from './armes.js';
 import { creerBonus, NOMS_BONUS } from './bonus.js';
 import { creerInterface } from './interface.js';
+import { creerRendu } from './rendu.js';
+import { IDS_QUALITE, creerSurveillancePerf, majSurveillancePerf } from './regles/qualite.js';
 import {
   creerPartie, majPartie, peutFaireApparaitre, enregistrerApparition, enregistrerMort,
   tirerBonus, choisirPointApparition, zombiesRestants,
@@ -24,32 +26,34 @@ const ui = creerInterface();
 const $ = (id) => document.getElementById(id);
 
 // ---------- Rendu ----------
-let renderer;
+let rendu;
 try {
-  renderer = new THREE.WebGLRenderer({ antialias: true });
+  rendu = creerRendu($('jeu'));
 } catch (e) {
   ui.ecranErreur("Votre navigateur ne peut pas afficher la 3D (WebGL). Activez l'accélération matérielle dans les paramètres de Chrome ou Edge, puis rechargez la page.");
   throw e;
 }
-renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
-renderer.setSize(innerWidth, innerHeight);
-$('jeu').appendChild(renderer.domElement);
-
-const scene = new THREE.Scene();
-scene.background = new THREE.Color(0x0b0f1a);
-scene.fog = new THREE.FogExp2(0x0b0f1a, 0.03);
-const camera = new THREE.PerspectiveCamera(75, innerWidth / innerHeight, 0.03, 200);
-scene.add(camera);
+const { renderer, scene, camera } = rendu;
 scene.add(new THREE.HemisphereLight(0x5a6a8a, 0x1a1a1a, 0.7));
 const lune = new THREE.DirectionalLight(0x8899cc, 0.6);
 lune.position.set(-20, 40, 10);
 scene.add(lune);
 
-addEventListener('resize', () => {
-  camera.aspect = innerWidth / innerHeight;
-  camera.updateProjectionMatrix();
-  renderer.setSize(innerWidth, innerHeight);
-});
+addEventListener('resize', () => rendu.redimensionner());
+
+// Qualité graphique : mémorisée ; en mode test, Basse par défaut (rendu logiciel lent)
+const CLE_QUALITE = 'zoneMorte.qualite';
+const parametresUrl = new URLSearchParams(location.search);
+let qualiteInitiale = 'moyenne';
+try { if (IDS_QUALITE.includes(localStorage.getItem(CLE_QUALITE))) qualiteInitiale = localStorage.getItem(CLE_QUALITE); } catch { /* stockage indisponible */ }
+if (modeTest) qualiteInitiale = IDS_QUALITE.includes(parametresUrl.get('qualite')) ? parametresUrl.get('qualite') : 'basse';
+function changerQualite(id) {
+  if (!IDS_QUALITE.includes(id)) return;
+  rendu.appliquerQualite(id);
+  if (!modeTest) try { localStorage.setItem(CLE_QUALITE, id); } catch { /* idem */ }
+  ui.marquerQualite(id);
+}
+const surveillancePerf = creerSurveillancePerf();
 
 // ---------- Monde ----------
 const carte = construireCarte(scene);
@@ -216,6 +220,9 @@ const jeu = {
   vitesseTemps: 1,
   accelerer(f) { this.vitesseTemps = f; },
   demarrerPartie, mettreEnPause, reprendre, afficherMenu, toucherZombie, entrees,
+  get qualite() { return rendu.qualite; },
+  rendu,
+  changerQualite,
   tirer: () => armes.tirForce(),
   interagir,
 };
@@ -275,6 +282,10 @@ $('btn-abandon').addEventListener('click', () => { jeu.etat = 'partie'; finDePar
 joueur.controles.addEventListener('unlock', () => mettreEnPause());
 document.addEventListener('visibilitychange', () => { if (document.hidden) mettreEnPause(); });
 addEventListener('blur', () => mettreEnPause());
+for (const b of document.querySelectorAll('.choix-qualite button')) {
+  b.addEventListener('click', () => changerQualite(b.dataset.qualite));
+}
+changerQualite(qualiteInitiale);
 afficherMenu();
 
 // ---------- Boucle ----------
@@ -325,8 +336,11 @@ function boucle(dtBrut) {
     });
     if (estMort(joueur.vie)) finDePartie();
   }
+  if (jeu.etat === 'partie' && majSurveillancePerf(surveillancePerf, dtBrut, rendu.qualite)) {
+    ui.message('Images saccadées : passez en qualité Moyenne (menu pause)', 5);
+  }
   finImageEntrees();
-  renderer.render(scene, camera);
+  rendu.rendre(dt);
 }
 
 let precedent = performance.now();
