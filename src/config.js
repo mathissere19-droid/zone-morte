@@ -14,7 +14,14 @@ export const CONFIG = {
     vieMax: 100, degatsZombie: 40, delaiRegen: 4, dureeRegen: 1,
     staminaMax: 4, rechargeStamina: 2,
     vitesseMarche: 4.5, vitesseSprint: 7, vitesseVisee: 2.6,
-    hauteurYeux: 1.7, rayon: 0.35, sautVitesse: 5, gravite: 15,
+    hauteurYeux: 1.7, rayon: 0.35, sautVitesse: 5, gravite: 15, hauteurCorps: 1.8,
+    accroupi: { hauteurYeux: 1.0, hauteurCorps: 1.2, vitesse: 0.5, dispersion: 0.7 },
+  },
+
+  // rebord : hauteur au-dessus des pieds [rebordMin, rebordMax] à moins de « portee » ; chute : 10 PV/m au-delà de 4 m
+  escalade: {
+    rebordMin: 0.9, rebordMax: 2.2, portee: 0.8, dureeHisse: 0.6, vitesseEchelle: 2.5,
+    chuteSansDegats: 4, degatsParMetre: 10, lienRebord: 1.5, lienEchelle: 2.5, sautBas: 0.4, hauteurIlot: 1.2,
   },
 
   // cadence : 'semi' (un tir par clic) ou tirs par minute
