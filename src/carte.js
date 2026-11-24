@@ -3,6 +3,7 @@
 import * as THREE from 'three';
 import { CONFIG } from './config.js';
 import { uvEnMetres } from './uv.js';
+import * as D from './decors.js';
 
 const EP = 0.4; // épaisseur des murs
 
@@ -24,6 +25,8 @@ export const mats = {
   solHangar: new THREE.MeshStandardMaterial({ color: 0x4a4946, roughness: 0.9 }),
   sacs: new THREE.MeshStandardMaterial({ color: 0x8a7b58, roughness: 1 }),
   bache: new THREE.MeshStandardMaterial({ color: 0x4a5236, roughness: 0.95 }),
+  conteneurA: new THREE.MeshStandardMaterial({ color: 0x7a3a2a, roughness: 0.7, metalness: 0.4 }),
+  conteneurB: new THREE.MeshStandardMaterial({ color: 0x3a5068, roughness: 0.7, metalness: 0.4 }),
   grillage: new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.6, metalness: 0.5, transparent: true, alphaTest: 0.5, side: THREE.DoubleSide }),
 };
 
@@ -76,6 +79,21 @@ export function construireCarte(scene) {
     if (zombies) carte.aabbsZombies.push(b);
     if (nav) carte.navObstacles.push(b);
     return { mesh: m, aabb: b };
+  }
+
+  // Décor détaillé : collision = boîte englobante, maillages = modèle de decors.js (arrêtent les balles)
+  function decor(fabrique, minX, maxX, minZ, maxZ, h, ...options) {
+    const b = { minX, maxX, minZ, maxZ, minY: 0, maxY: h };
+    carte.aabbs.push(b); carte.aabbsZombies.push(b); carte.navObstacles.push(b);
+    const modele = fabrique(mats, { dx: maxX - minX, dz: maxZ - minZ }, h, ...options);
+    modele.position.set((minX + maxX) / 2, 0, (minZ + maxZ) / 2);
+    groupe.add(modele);
+    modele.traverse((o) => {
+      if (!o.isMesh) return;
+      o.castShadow = o.receiveShadow = true;
+      carte.obstaclesVisibles.push(o);
+    });
+    return b;
   }
 
   // Mur entre (x1,z1) et (x2,z2) (horizontal ou vertical), avec ouvertures [a,b] le long de l'axe
@@ -203,14 +221,21 @@ export function construireCarte(scene) {
   void pHangar; void pBunker;
 
   // ---------- Cour ----------
-  boite(-10, -4, 8, 10.5, 0, 2.6, mats.kaki);              // camion renversé
-  boite(-10, -8.5, 7.5, 11, 0, 1.8, mats.metal);           // cabine
-  boite(4, 7, -6, -5.2, 0, 1.0, mats.sable);               // sacs de sable
-  boite(6.2, 7, -6, -3, 0, 1.0, mats.sable);
+  decor(D.camionRenverse, -8.5, -4, 8, 10.5, 2.6);         // camion renversé
+  decor(D.cabine, -10, -8.5, 7.5, 11, 1.8);                // cabine
+  decor(D.muretSacs, 4, 7, -6, -5.2, 1.0);                 // sacs de sable
+  decor(D.muretSacs, 6.2, 7, -5.2, -3, 1.0);
   boite(-14, -12, -4, -2, 0, 1.2, mats.bois);              // caisses
   boite(-14, -12.8, -2, -0.8, 0, 2.4, mats.bois);
-  boite(8, 9.2, 10, 11.2, 0, 1.2, mats.rouille);           // barils
-  boite(9.4, 10.6, 10, 11.2, 0, 1.2, mats.rouille);
+  decor(D.barils, 8, 9.2, 10, 11.2, 1.2);                  // barils
+  decor(D.barils, 9.4, 10.6, 10, 11.2, 1.2);
+  // nouveaux décors de la cour
+  decor(D.conteneur, -15, -12.6, 6, 12, 2.6, mats.conteneurA);
+  decor(D.conteneur, 4, 10, -10, -7.6, 2.6, mats.conteneurB);
+  decor(D.muretSacs, -2, 2, 12, 12.6, 1.0);
+  decor(D.jeep, 6, 9.5, 4, 5.8, 1.5);
+  decor(D.palettes, -8, -6.8, -8, -6.8, 0.6);
+  decor(D.barils, 11, 12.2, -10, -8.8, 1.2);
   projecteur(0.15, 0.15, 7, { x: -6, z: 8 }, 0);          // mâts de projecteurs
   projecteur(-12, -9, 6, { x: -4, z: -2 }, 2);
   lumiere(-16, 3.5, 16, 0xffb070, 12, 14, true);
@@ -223,8 +248,10 @@ export function construireCarte(scene) {
   groupe.add(toit);
   mur(-18, -36, -18, -12, 8, mats.tole);
   for (const [x, z] of [[-10, -18], [0, -18], [-10, -30], [0, -30]]) boite(x, x + 0.5, z, z + 0.5, 0, 8, mats.metal); // piliers
-  boite(-14, -7, -28, -24, 0, 2.2, mats.kaki);             // véhicule bâché
-  boite(-2, 4, -22, -19, 0, 1.6, mats.kaki);
+  decor(D.vehiculeBache, -14, -7, -28, -24, 2.2);          // véhicules bâchés
+  decor(D.vehiculeBache, -2, 4, -22, -19, 1.6);
+  decor(D.pileCaisses, -6, -3, -35, -33, 2.0);
+  decor(D.barils, 5, 6.2, -16, -14.8, 1.2);
   boite(2, 4, -33, -31, 0, 1.4, mats.bois);
   boite(-17.5, 7.5, -35.5, -34, 3, 3.2, mats.metal, { collision: false, nav: false, zombies: false }); // passerelle
   lumiere(-5, 7, -24, 0xffe0b0, 30, 26, true);
@@ -242,6 +269,9 @@ export function construireCarte(scene) {
   mur(14, -4, 18, -4, 2.6, mats.betonSombre);
   boite(28, 32, 0, 2, 0, 1.0, mats.metal);                 // table de commandement
   boite(17, 19, 12, 16, 0, 1.6, mats.bois);
+  decor(D.armoireRenversee, 24, 26, 12, 13, 0.8);
+  decor(D.bureauRenverse, 16, 18, -8, -7, 0.9);
+  decor(D.armoireRenversee, 33, 35, -2, -1.4, 0.8);
   lumiere(18, 2.4, 0, 0x9fffd0, 8, 12, true);
   lumiere(29, 2.4, 14, 0x9fffd0, 8, 12, true);
   lumiere(29, 2.4, -6, 0xff6040, 6, 10, true);
@@ -271,8 +301,11 @@ export function construireCarte(scene) {
     p.rotation.set((z + 28) * 0.03, 0, (28 - x) * 0.03);
     groupe.add(p);
   }
-  boite(12, 15, -32, -29, 0, 2.5, mats.rouille);           // conteneur
-  boite(16, 18, -18, -16, 0, 1, mats.sable);
+  decor(D.conteneur, 12, 15, -32, -29, 2.5, mats.conteneurA); // conteneur
+  decor(D.muretSacs, 16, 18, -18, -16, 1);
+  decor(D.guerite, 32, 35, -20, -17, 2.5);
+  decor(D.muretSacs, 18, 22, -22, -21.4, 1.0);
+  decor(D.barils, 10, 11.2, -20, -18.8, 1.2);
   projecteur(18, -20, 7, { x: 24, z: -28 }, 1);
   // gyrophare rouge au sommet de la tour
   {

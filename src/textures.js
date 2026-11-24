@@ -17,6 +17,8 @@ export const CATALOGUE_TEXTURES = {
   kaki:        { id: 'green_metal_rust', taille: 2, metal: true },
   sacs:        { id: 'dense_sand', taille: 0.6, teinte: 0xb8a47a },
   bache:       { id: 'denim_fabric_04', taille: 1.5, teinte: 0x5b6640 },
+  conteneurA:  { id: 'rusty_metal_02', taille: 2, metal: true, teinte: 0xc06048 },
+  conteneurB:  { id: 'rusty_metal_02', taille: 2, metal: true, teinte: 0x6a8aa8 },
   dehors:      { id: 'coast_sand_rocks_02', taille: 6 },
 };
 

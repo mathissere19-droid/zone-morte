@@ -49,17 +49,30 @@ export function creerRendu(conteneur) {
   scene.background = new THREE.Color(R.brouillard.couleur);
   scene.fog = new THREE.FogExp2(R.brouillard.couleur, R.brouillard.densite);
   scene.environmentIntensity = R.intensiteEnvironnement;
-  scene.backgroundIntensity = R.intensiteFond;
   const camera = new THREE.PerspectiveCamera(75, innerWidth / innerHeight, 0.03, 200);
   scene.add(camera);
 
-  // Ciel de nuit : éclairage d'ambiance + fond (repli : fond uni)
+  // Ciel de nuit : éclairage d'ambiance (PMREM) + sphère de ciel qui suit la caméra.
+  // (le fond « scene.background » d'un HDRI est dessiné au plan lointain : certains pilotes en coupent
+  //  des triangles, d'où une sphère de 150 m, bien en deçà du plan lointain de 200 m ; repli : fond uni)
+  let ciel = null;
   new RGBELoader().load(HDRI.chemin, (hdr) => {
     hdr.mapping = THREE.EquirectangularReflectionMapping;
     const pmrem = new THREE.PMREMGenerator(renderer);
     scene.environment = pmrem.fromEquirectangular(hdr).texture;
     pmrem.dispose();
-    scene.background = hdr;
+    const texCiel = hdr.clone();
+    texCiel.mapping = THREE.UVMapping;
+    texCiel.needsUpdate = true;
+    ciel = new THREE.Mesh(new THREE.SphereGeometry(150, 48, 24), new THREE.MeshBasicMaterial({
+      map: texCiel, side: THREE.BackSide, fog: false, depthWrite: false,
+      color: new THREE.Color().setScalar(R.intensiteFond),
+    }));
+    ciel.scale.x = -1; // vu de l'intérieur : remettre le panorama à l'endroit
+    ciel.renderOrder = -1;
+    ciel.name = 'ciel';
+    ciel.raycast = () => {}; // n'arrête ni les balles ni les rayons de visée
+    scene.add(ciel);
   }, undefined, () => console.warn('Ciel HDRI manquant : ' + HDRI.chemin));
 
   const composer = new EffectComposer(renderer);
@@ -105,6 +118,7 @@ export function creerRendu(conteneur) {
       composer.setSize(innerWidth, innerHeight);
     },
     rendre(dt) {
+      if (ciel) ciel.position.copy(camera.position);
       f.temps.value = (f.temps.value + dt) % 1000;
       if (rendu.postTraitement) composer.render(dt);
       else renderer.render(scene, camera);

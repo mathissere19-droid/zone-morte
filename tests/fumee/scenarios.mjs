@@ -399,9 +399,12 @@ scenarios.push({
     e = await etat();
     verifier(e.visibles === 4 && e.ombres && e.lune, `Haute : 4 projecteurs, ombres, lune (${JSON.stringify(e)})`);
     const cible1 = await page.evaluate(() => window.__jeu.carte.gyrophare.lumiere.target.position.x);
-    await attendre(700);
-    const cible2 = await page.evaluate(() => window.__jeu.carte.gyrophare.lumiere.target.position.x);
-    verifier(cible1 !== cible2, 'le gyrophare tourne');
+    // en rendu logiciel (SwiftShader), une image en qualité Haute peut prendre plus d'une seconde :
+    // on attend que le gyrophare ait bougé plutôt qu'une durée fixe
+    const t0 = Date.now();
+    const tourne = await page.waitForFunction((c1) => window.__jeu.carte.gyrophare.lumiere.target.position.x !== c1,
+      cible1, { timeout: 10000 }).then(() => true, () => false);
+    verifier(tourne, `le gyrophare tourne (${Date.now() - t0} ms)`);
     await page.evaluate(() => window.__jeu.changerQualite('basse'));
   },
 });
