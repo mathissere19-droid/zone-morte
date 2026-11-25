@@ -14,7 +14,8 @@ Python doit être installé (c'est le cas sur ce PC).
 | Viser | clic droit |
 | Tirer | clic gauche |
 | Sprint | Maj gauche |
-| Sauter | Espace |
+| Sauter / grimper | Espace (tenir en sautant pour attraper un rebord) |
+| S'accroupir | C |
 | Recharger | R |
 | Acheter / ouvrir | E |
 | Couteau | V |
@@ -22,6 +23,13 @@ Python doit être installé (c'est le cas sur ce PC).
 | Lampe torche | F |
 | Changer d'arme | 1, 2 ou molette |
 | Pause | Échap |
+
+**Échelles** : avancer face à l'échelle pour monter, reculer pour descendre, Espace pour lâcher. Une chute de plus de 4 m fait mal.
+
+## Se cacher
+Les zombies vous **voient** (25 m devant eux, 12 m seulement si vous êtes accroupi dans l'ombre, lampe éteinte) et vous **entendent** : un tir porte à 30 m (l'arbalète à 5 m), le sprint à 10 m, la marche à 5 m, accroupi à 1,5 m. Un zombie qui vous repère prévient ceux qui l'entourent.
+
+Cassez le contact (derrière un mur, sur un toit, accroupi dans un coin sombre) : ils vont voir là où ils vous ont perdu et fouillent autour. Mais **la horde finit toujours par revenir** : au bout de 15 s (10 s en Vétéran, 6 s en Cauchemar), ils sentent votre position. Ils savent aussi grimper : rebords des conteneurs et échelles.
 
 ## Difficultés
 À choisir sur l'écran d'accueil (un record par niveau) :

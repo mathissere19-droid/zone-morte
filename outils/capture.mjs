@@ -1,4 +1,4 @@
-// Capture d'écran du jeu pour juger le rendu : node outils/capture.mjs <qualite> <x> <z> <angleDeg> <fichier> [lampe] [effets]
+// Capture d'écran du jeu pour juger le rendu : node outils/capture.mjs <qualite> <x> <z> <angleDeg> <fichier> [lampe] [effets]  (CAPTURE_Y=2.6 : joueur placé en hauteur)
 import { spawn } from 'node:child_process';
 import { chromium } from 'playwright-core';
 import path from 'node:path';
@@ -13,11 +13,12 @@ try {
   p.on('pageerror', (e) => console.log('erreur', String(e)));
   await p.goto(`http://localhost:8645/?test=1&qualite=${qualite}`);
   await p.waitForFunction(() => window.__jeu && window.__jeu.scene.environment, null, { timeout: 60000 });
-  await p.evaluate(([x, z, a, l]) => {
+  await p.evaluate(([x, z, a, l, y]) => {
     const j = window.__jeu; j.demarrerPartie('recrue'); j.joueur.vie.pv = 1e9; j.accelerer(1);
     j.joueur.placer(+x, +z); j.camera.rotation.set(0, (+a * Math.PI) / 180, 0, 'YXZ');
     if (l) j.entrees.appuis.add('KeyF');
-  }, [x, z, angle, lampe]);
+    if (y) { j.joueur.position.y = +y; j.joueur.sommetSaut = +y; j.joueur.majCamera(); }
+  }, [x, z, angle, lampe, process.env.CAPTURE_Y]);
   await new Promise((r) => setTimeout(r, 6000));
   if (effets) { // effets : rafale sur ce qu'on vise + explosion à 7 m devant
     await p.evaluate(([a]) => {
