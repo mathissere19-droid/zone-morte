@@ -8,7 +8,7 @@ import { trouverChemin, ligneLibre } from './regles/navigation.js';
 import { hauteurSol } from './carte.js';
 import { majBrulure } from './regles/combat.js';
 import { creerSuiviBlocage, majSuiviBlocage } from './regles/blocage.js';
-import { choisirAnimation, momentImpact, doitAnimer } from './regles/animation-zombie.js';
+import { choisirAnimation, momentImpact, doitAnimer, toucheJambes } from './regles/animation-zombie.js';
 import { creerModeleZombie } from './modeles-zombies.js';
 import { creerPerception, majPerception, voit } from './regles/perception.js';
 import { hauteurSurfaces, choisirLien, bordLePlusProche } from './regles/surfaces.js';
@@ -110,7 +110,7 @@ export function creerGestionnaireZombies(scene, carte, grille) {
       id: compteur++,
       modele: m,
       position: { x: point.x, y: hauteurSol(point.x, point.z), z: point.z },
-      pv: pvZombieActif(vague),
+      pv: pvZombieActif(vague), pvMax: pvZombieActif(vague),
       type,
       vitesse: VITESSES[type] * (0.9 + rng() * 0.2),
       chemin: null, iChemin: 0,
@@ -140,11 +140,17 @@ export function creerGestionnaireZombies(scene, carte, grille) {
   }
 
   // Applique des dégâts ; renvoie true si le zombie vient de mourir
-  function infliger(z, degats) {
+  // zone 'jambes' : dégâts cumulés, le zombie peut passer rampeur
+  function infliger(z, degats, zone) {
     if (z.mort) return false;
     z.pv -= degats;
     z.recul = 0.12;
     if (z.pv <= 0) { z.mort = true; z.tempsMort = 0; return true; }
+    if (zone === 'jambes' && toucheJambes(z, degats, z.pvMax)) {
+      z.rampe = true;
+      z.modele.passerRampeur();
+      z.escalade = null;
+    }
     return false;
   }
 
@@ -257,6 +263,7 @@ export function creerGestionnaireZombies(scene, carte, grille) {
       const dx = jp.x - z.position.x, dz = jp.z - z.position.z;
       const dist = Math.hypot(dx, dz);
       const memeNiveau = Math.abs(jp.y - z.position.y) < 1.2;
+      const portee = z.rampe ? Z.rampe.portee : Z.porteeAttaque;
       let angleCible = Math.atan2(dx, dz);
       let enMarche = false;
       let surveille = true; // détection de blocage
@@ -264,7 +271,7 @@ export function creerGestionnaireZombies(scene, carte, grille) {
       if (z.escalade) {
         angleCible = majEscalade(z, dt);
         enMarche = true; surveille = false;
-      } else if (z.tAttaque != null || (dist < Z.porteeAttaque && memeNiveau)) {
+      } else if (z.tAttaque != null || (dist < portee && memeNiveau)) {
         // attaque : le coup part à l'instant d'impact de l'animation, si le joueur est encore à portée
         const duree = m.dureeAnimation('attaque');
         if (z.tAttaque == null) {
@@ -273,7 +280,7 @@ export function creerGestionnaireZombies(scene, carte, grille) {
         }
         const avant = z.tAttaque;
         z.tAttaque += dt;
-        if (momentImpact(avant, z.tAttaque, duree) && dist < Z.porteeAttaque * 1.3 && memeNiveau) surCoup(CONFIG.joueur.degatsZombie, z);
+        if (momentImpact(avant, z.tAttaque, duree) && dist < portee * 1.3 && memeNiveau) surCoup(CONFIG.joueur.degatsZombie, z);
         if (z.tAttaque >= duree) z.tAttaque = null;
       } else {
         const traque = etat === 'traque';
@@ -285,8 +292,9 @@ export function creerGestionnaireZombies(scene, carte, grille) {
           continue;
         }
         const lien = !z.surface && traque && jIlot ? choisirLien(carte.liens, jIlot.id, z.position) : null;
+        // un rampeur ne grimpe plus : il attend au pied
         if (lien) {
-          if (Math.hypot(lien.bas.x - z.position.x, lien.bas.z - z.position.z) < 1) { // le pied est souvent dans une case bloquée de la grille
+          if (!z.rampe && Math.hypot(lien.bas.x - z.position.x, lien.bas.z - z.position.z) < 1) { // le pied est souvent dans une case bloquée de la grille
             commencerEscalade(z, { x: lien.haut.x, y: lien.haut.h, z: lien.haut.z }, lien.duree, jIlot);
             continue;
           }
@@ -338,7 +346,7 @@ export function creerGestionnaireZombies(scene, carte, grille) {
             if (d > 0.001 && d < 0.7) { mx += (ox / d) * (0.7 - d) * 2; mz += (oz / d) * (0.7 - d) * 2; }
           }
           const lm = Math.hypot(mx, mz) || 1;
-          const v = z.vitesse * dt * (z.recul > 0 ? 0.3 : 1) * (traque ? 1 : 0.6); // il fouille sans se presser
+          const v = z.vitesse * dt * (z.recul > 0 ? 0.3 : 1) * (traque ? 1 : 0.6) * (z.rampe ? Z.rampe.vitesse : 1); // il fouille sans se presser
           const p = deplacer(z.position, (mx / lm) * v, (mz / lm) * v, Z.rayon, carte.aabbsZombies, z.position.y);
           if (z.surface) {
             // borné au-dessus de l'îlot (ne tombe pas du bord)

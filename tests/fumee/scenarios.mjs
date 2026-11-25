@@ -778,3 +778,65 @@ scenarios.push({
     verifier(r.h && !r.m && !r.b && !r.n2, 'ombres portées en Haute seulement (haute ' + r.h + ', moyenne ' + r.m + ', basse ' + r.b + ', nouveau en moyenne ' + r.n2 + ')');
   },
 });
+const viserZone = (page, nomZ, zone) => page.evaluate(([nomZ, zone]) => {
+  const j = window.__jeu, z = window[nomZ];
+  z.modele.g.updateMatrixWorld(true);
+  const b = z.modele.touchables.find((t) => t.userData.zone === zone);
+  if (!b) return -1;
+  j.camera.lookAt(b.getWorldPosition(new (j.camera.position.constructor)()));
+  const avant = z.pv; j.tirer(); return avant - z.pv;
+}, [nomZ, zone]);
+scenarios.push({
+  nom: 'tête qui saute',
+  async executer(page, verifier) {
+    await page.evaluate(() => {
+      const j = window.__jeu;
+      j.demarrerPartie('recrue'); j.zombies.vider(); j.joueur.vie.pv = 1e9; j.joueur.placer(-2, 4);
+      window.__zt = j.zombies.faireApparaitre({ x: -2, z: -2 }, 1);
+      Object.assign(window.__zt, { emergence: 0, vitesse: 0 });
+    });
+    await page.waitForFunction(() => window.__jeu.partie.temps > 0.5, null, { timeout: 20000 });
+    await viserZone(page, '__zt', 'tete');
+    const r = await page.evaluate(() => ({ mort: window.__zt.mort, tete: window.__zt.modele.teteRetiree, morceaux: window.__jeu.effets.morceaux.length }));
+    verifier(r.mort && r.tete, 'tué d\'un tir à la tête : la tête saute (' + JSON.stringify(r) + ')');
+    verifier(r.morceaux > 0, 'un morceau de tête part en l\'air');
+    await page.evaluate(() => window.__jeu.demarrerPartie('soldat'));
+  },
+});
+scenarios.push({
+  nom: 'rampeur après des tirs dans les jambes',
+  async executer(page, verifier, attendre) {
+    await page.evaluate(() => {
+      const j = window.__jeu;
+      j.demarrerPartie('soldat'); j.zombies.vider(); j.joueur.vie.pv = 1e9; j.joueur.placer(-2, 4);
+      window.__zr = j.zombies.faireApparaitre({ x: -2, z: -2 }, 1);
+      Object.assign(window.__zr, { emergence: 0, vitesse: 0 });
+    });
+    await page.waitForFunction(() => window.__jeu.partie.temps > 0.5, null, { timeout: 20000 });
+    for (let i = 0; i < 4 && !(await page.evaluate(() => window.__zr.rampe || window.__zr.mort)); i++) {
+      await viserZone(page, '__zr', 'jambes');
+      await attendre(500);
+    }
+    const r = await page.evaluate(() => ({ rampe: window.__zr.rampe, mort: window.__zr.mort, pv: window.__zr.pv, jambes: window.__zr.modele.touchables.filter((t) => t.userData.zone === 'jambes').length }));
+    verifier(r.rampe && !r.mort, 'le zombie passe rampeur sans mourir (' + JSON.stringify(r) + ')');
+    verifier(r.jambes === 0, 'zone jambes désactivée');
+    await page.waitForFunction(() => window.__zr.modele.animation === 'ramper', null, { timeout: 20000 }).catch(() => {});
+    verifier(await page.evaluate(() => window.__zr.modele.animation) === 'ramper', 'animation ramper');
+  },
+});
+scenarios.push({
+  nom: 'flaques de sang bornées',
+  async executer(page, verifier) {
+    const n = await page.evaluate(() => {
+      const j = window.__jeu;
+      j.demarrerPartie(); j.zombies.vider(); j.joueur.vie.pv = 1e9;
+      for (let i = 0; i < 30; i++) {
+        const z = j.zombies.faireApparaitre({ x: -6 + (i % 6) * 1.5, z: -4 - Math.floor(i / 6) * 1.5 }, 1);
+        z.emergence = 0;
+        j.toucherZombie(z, 1e9, {});
+      }
+      return j.effets.flaques.length;
+    });
+    verifier(n > 0 && n <= 24, '30 morts → ' + n + ' flaques (24 au plus)');
+  },
+});

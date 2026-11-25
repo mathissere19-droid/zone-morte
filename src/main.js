@@ -23,6 +23,7 @@ import { IDS_DIFFICULTE, choisirDifficulte, difficulteActive, degatsRecus } from
 import { creerPortefeuille, gainCoup, crediter, payer, tirageCaisse, acheterMur } from './regles/economie.js';
 import { creerInventaire, armeActive, ajouterArme, remplirTout, rendreGrenades } from './regles/inventaire.js';
 import { rayonBruit, dansOmbre } from './regles/perception.js';
+import { teteArrachee } from './regles/animation-zombie.js';
 
 const modeTest = new URLSearchParams(location.search).has('test');
 const ui = creerInterface();
@@ -139,9 +140,10 @@ function afficherMenu() {
 }
 
 // ---------- Combat ----------
-function toucherZombie(z, degats, { tete = false, couteau = false, brulure = false } = {}) {
+function toucherZombie(z, degats, { tete = false, zone = tete ? 'tete' : 'corps', couteau = false, brulure = false } = {}) {
   if (jeu.etat !== 'partie' || z.mort) return;
-  const mortel = zombies.infliger(z, degats);
+  const mortel = zombies.infliger(z, degats, zone);
+  if (mortel) mortVisible(z, { tete });
   // une touche de brûlure non mortelle ne rapporte rien
   const gain = brulure && !mortel ? 0 : gainCoup({ mortel, tete, couteau }, doubles > 0);
   crediter(portefeuille, gain);
@@ -149,6 +151,17 @@ function toucherZombie(z, degats, { tete = false, couteau = false, brulure = fal
   if (mortel) {
     enregistrerMort(partie, { tete });
     if (tirerBonus(partie, Math.random)) bonus.lacher(z.position);
+  }
+}
+
+// Flaque de sang sous le corps ; tir mortel à la tête : la tête saute
+function mortVisible(z, { tete = false }) {
+  effets.flaque(z.position);
+  if (teteArrachee({ tete, mortel: true, boss: !!z.boss })) {
+    const p = z.modele.positionTete(new THREE.Vector3());
+    z.modele.retirerTete();
+    const dir = new THREE.Vector3(p.x - joueur.position.x, 0, p.z - joueur.position.z).normalize();
+    effets.morceauTete(p, dir);
   }
 }
 
@@ -168,7 +181,7 @@ function appliquerBonus(type) {
   if (type === 'soin') joueur.vie.pv = CONFIG.joueur.vieMax;
   if (type === 'doubles') doubles = CONFIG.bonus.pointsDoublesDuree;
   if (type === 'explosion') {
-    for (const z of zombies.tuerTous()) enregistrerMort(partie, { tete: false });
+    for (const z of zombies.tuerTous()) { enregistrerMort(partie, { tete: false }); mortVisible(z, {}); }
     crediter(portefeuille, CONFIG.bonus.explosionPoints);
     partie.pointsGagnes += CONFIG.bonus.explosionPoints;
     explosionVisuelle(new THREE.Vector3(joueur.position.x, 1.5, joueur.position.z));

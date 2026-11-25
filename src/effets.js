@@ -127,6 +127,24 @@ export function creerEffets(scene) {
     return d;
   }
 
+  // ---------- flaques de sang et morceaux de tête ----------
+  const S = CONFIG.sang;
+  const flaques = []; // { m, t }
+  const geoFlaque = new THREE.CircleGeometry(0.5, 14);
+  geoFlaque.rotateX(-Math.PI / 2);
+  const matFlaque = new THREE.MeshStandardMaterial({
+    color: 0x2a0202, roughness: 0.2, transparent: true, depthWrite: false,
+    polygonOffset: true, polygonOffsetFactor: -3, polygonOffsetUnits: -3,
+  });
+  const morceaux = []; // { m, v, t }
+  const geoMorceau = new THREE.SphereGeometry(0.09, 8, 6);
+  const matMorceau = new THREE.MeshStandardMaterial({ color: 0x4a2a22, roughness: 0.8 });
+
+  function retirerFlaque(f) {
+    scene.remove(f.m);
+    f.m.material.dispose();
+  }
+
   // ---------- lumières permanentes ----------
   const lumiereEclair = new THREE.PointLight(0x9fc8ff, 0, 12, 2);
   const lumiereExplosion = new THREE.PointLight(0xff8030, 0, 18, 2);
@@ -141,7 +159,35 @@ export function creerEffets(scene) {
   ];
 
   const effets = {
-    trous, fumees, particules,
+    trous, fumees, particules, flaques, morceaux,
+
+    // flaque de sang au sol sous un mort (bornée, s'efface sur les 5 dernières secondes)
+    flaque(position) {
+      const m = new THREE.Mesh(geoFlaque, matFlaque.clone());
+      m.position.set(position.x + aleatoire(0.2), position.y + 0.02, position.z + aleatoire(0.2));
+      m.scale.set(0.8 + Math.random() * 0.7, 1, 0.8 + Math.random() * 0.7);
+      m.rotation.y = Math.random() * Math.PI;
+      m.raycast = () => {};
+      m.receiveShadow = true;
+      scene.add(m);
+      const ancien = ajouterBorne(flaques, { m, t: 0 }, S.flaques);
+      if (ancien) retirerFlaque(ancien);
+    },
+
+    // tête qui saute : morceau projeté + gerbe de sang
+    morceauTete(position, direction) {
+      const m = new THREE.Mesh(geoMorceau, matMorceau);
+      m.position.copy(position);
+      m.raycast = () => {};
+      scene.add(m);
+      morceaux.push({ m, v: direction.clone().multiplyScalar(2).add(new THREE.Vector3(aleatoire(1), 4 + Math.random() * 2, aleatoire(1))), t: 0 });
+      for (let i = 0; i < nombreParticules(20, facteur); i++) {
+        particule(tex.doux, {
+          position, v: directionAleatoire(new THREE.Vector3(0, 1, 0), 0.8).multiplyScalar(2 + Math.random() * 3),
+          vie: 0.5 + Math.random() * 0.3, gravite: 9, taille: [0.08, 0.14], opacite: [0.95, 0], additif: false, couleur: 0x5a0505,
+        });
+      }
+    },
 
     qualite(params) { facteur = params.particules; },
 
@@ -270,6 +316,23 @@ export function creerEffets(scene) {
         eclairs[i].t -= dt;
         if (eclairs[i].t <= 0) { scene.remove(eclairs[i].l); eclairs[i].l.geometry.dispose(); eclairs.splice(i, 1); }
       }
+      for (let i = flaques.length - 1; i >= 0; i--) {
+        const f = flaques[i];
+        f.t += dt;
+        const reste = S.duree - f.t;
+        if (reste <= 0) { retirerFlaque(f); flaques.splice(i, 1); continue; }
+        f.m.material.opacity = Math.min(1, reste / 5) * 0.92;
+        if (f.t < 1.5) f.m.scale.multiplyScalar(1 + dt * 0.25); // le sang s'étale
+      }
+      for (let i = morceaux.length - 1; i >= 0; i--) {
+        const o = morceaux[i];
+        o.t += dt;
+        o.v.y -= 9.8 * dt;
+        o.m.position.addScaledVector(o.v, dt);
+        o.m.rotation.x += dt * 8;
+        if (o.m.position.y < 0.09) { o.m.position.y = 0.09; o.v.set(0, 0, 0); }
+        if (o.t > 6) { scene.remove(o.m); morceaux.splice(i, 1); }
+      }
       tEclair -= dt;
       lumiereEclair.intensity = tEclair > 0 ? 25 * (0.5 + Math.random() * 0.5) : 0;
       tExplosion -= dt;
@@ -282,6 +345,10 @@ export function creerEffets(scene) {
       fumees.length = 0;
       for (const t of trous) t.removeFromParent();
       trous.length = 0;
+      for (const f of flaques) retirerFlaque(f);
+      flaques.length = 0;
+      for (const o of morceaux) scene.remove(o.m);
+      morceaux.length = 0;
       for (const e of eclairs) { scene.remove(e.l); e.l.geometry.dispose(); }
       eclairs.length = 0;
       tEclair = tExplosion = 0;

@@ -118,7 +118,7 @@ export function creerArmes({ camera, scene, effets, inventaire, cibles, obstacle
       if (z.mort || dejaTouches.has(z)) continue;
       dejaTouches.add(z);
       const tete = h.object.userData.zone === 'tete';
-      res.push({ zombie: z, degats: degatsTir(armeId, tete ? 'tete' : 'corps', h.distance), tete });
+      res.push({ zombie: z, degats: degatsTir(armeId, tete ? 'tete' : 'corps', h.distance), tete, zone: h.object.userData.zone });
       effets.impactChair(h.point, h.object, raycaster.ray.direction);
       if (res.length >= perce) break;
     }
@@ -192,12 +192,13 @@ export function creerArmes({ camera, scene, effets, inventaire, cibles, obstacle
       const total = new Map();
       for (let i = 0; i < (def.plombs ?? 1); i++) {
         for (const r of lancerRayon(a.id, disp, def.perce ?? 1)) {
-          const t = total.get(r.zombie) ?? { degats: 0, tete: false };
-          t.degats += r.degats; t.tete ||= r.tete;
+          const t = total.get(r.zombie) ?? { degats: 0, tete: false, jambes: true };
+          t.degats += r.degats; t.tete ||= r.tete; t.jambes &&= r.zone === 'jambes';
           total.set(r.zombie, t);
         }
       }
-      for (const [z, t] of total) surTouche(z, t.degats, { tete: t.tete, couteau: false });
+      // zone : 'jambes' seulement si tous les plombs/balles ont touché les jambes
+      for (const [z, t] of total) surTouche(z, t.degats, { tete: t.tete, zone: t.tete ? 'tete' : t.jambes ? 'jambes' : 'corps', couteau: false });
     }
     etat.attente = def.cadence === 'semi' ? 60 / CONFIG.semiCadenceMax : 60 / def.cadence;
     if (a.id === 'pompe') etat.attente = 60 / def.cadence; // pompe : semi mais cadence propre
