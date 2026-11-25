@@ -1,7 +1,7 @@
 # Zone Morte — Jalon 3 : rendu « vrai jeu de zombies »
 
 Date : 2026-11-25
-Statut : Lot 1 validé à l'oral, spec en relecture
+Statut : Lot 1 validé (boss compris)
 Base : branche `master`, commit 1c3955c (jalon 2 terminé).
 
 ## 1. Intention
@@ -24,7 +24,7 @@ Les lots 2 à 4 auront chacun leur propre conception (questions, puis spec) au m
 
 ### 2.1 Ressources (Mixamo, téléchargées par l'utilisateur)
 Dans `assets/mixamo/` (FBX bruts, **non versionnés** : `.gitignore`) :
-- 2 ou 3 personnages zombies humains, T-pose, avec peau : `zombie1.fbx`, `zombie2.fbx`, `zombie3.fbx` (facultatif).
+- Personnages T-pose avec peau : `zombie1.fbx` (Copzombie), `zombie2.fbx`, `boss.fbx` (gros zombie, §2.4). Même squelette `mixamorig:` (67 os communs), 8 000 à 12 500 faces, textures 2048 px, unités en cm.
 - 8 animations sans peau, 30 i/s, « In Place » pour les déplacements : `marche`, `course`, `attaque`, `mort1`, `mort2`, `ramper`, `sortie`, `attente`.
 
 Licence Mixamo : utilisation libre dans un jeu, pas de redistribution des fichiers bruts seuls. On versionne les GLB convertis (intégrés au jeu) et on cite Mixamo dans `CREDITS.md`.
@@ -56,10 +56,19 @@ Nouveau module `src/modeles-zombies.js` (chargement et animation, three.js) et m
 - **Sang au sol** : flaque (décalque) sous chaque mort, 24 au maximum, s'efface en 20 s.
 - **Performance** : au-delà de 25 m, mixer mis à jour une image sur deux ; ombres portées des zombies seulement en Haute ; objectif ≥ 60 i/s avec 24 zombies en Haute sur RTX.
 
-### 2.4 Ce qui ne change pas
+### 2.4 Boss (`boss.fbx`, ajout validé le 2026-11-25)
+- Apparaît à la vague 5 puis toutes les 5 vagues (10, 15…), **en plus** des zombies normaux de la vague (il compte dans le compteur « zombies restants »).
+- PV = 12 × PV d'un zombie de la même vague (difficulté comprise) ; vitesse 1,8 m/s, jamais de course (animation `marche` ralentie, plus lourde) ; coups ×3 ; escalade 1,5 × plus lente.
+- Pas de rampeur ni de tête qui saute (la tête compte quand même comme zone tête pour les dégâts).
+- Barre de vie en haut de l'écran tant qu'il est vivant, avec son nom (« Le Colosse »).
+- Kill : 500 points ; lâche toujours un bonus.
+- Valeurs dans `CONFIG.boss` ; règles (vague du boss, PV) dans `regles/vagues.js`, testées.
+- Le modèle est déjà massif : échelle 1 (pas de variation de taille), légère teinte plus sombre.
+
+### 2.5 Ce qui ne change pas
 IA, perception, escalade, vagues, points et difficultés du jalon 2 : identiques. Seuls l'apparence, l'animation et la zone `jambes` (et donc le rampeur) sont nouvelles.
 
-### 2.5 Tests
-- Unitaires : `choisirAnimation` (chaque état), règles de démembrement (seuil jambes, tête), borne des flaques.
-- Fumée (avec et sans GLB) : apparition, marche, attaque qui blesse, tir à la tête → tête retirée, tir dans les jambes → rampe, mort → corps retiré, aucune erreur console, vague 5 Cauchemar toujours terminée.
+### 2.6 Tests
+- Unitaires : `choisirAnimation` (chaque état), règles de démembrement (seuil jambes, tête), borne des flaques, vague du boss et PV du boss.
+- Fumée (avec et sans GLB) : boss à la vague 5 avec barre de vie, apparition, marche, attaque qui blesse, tir à la tête → tête retirée, tir dans les jambes → rampe, mort → corps retiré, aucune erreur console, vague 5 Cauchemar toujours terminée.
 - Capture en Haute d'un groupe de zombies, regardée avant la livraison.
