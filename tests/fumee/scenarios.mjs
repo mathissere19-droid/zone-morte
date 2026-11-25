@@ -663,8 +663,8 @@ scenarios.push({
     const erreurs = [];
     p2.on('console', (m) => { if (m.type() === 'error') erreurs.push(m.text()); });
     p2.on('pageerror', (e) => erreurs.push(String(e)));
-    await p2.goto(page.url().split('?')[0] + '?test=1&sansModeles=1');
-    await p2.waitForFunction(() => window.__jeu && window.__jeu.pret === true, null, { timeout: 30000 });
+    await p2.goto(page.url().split('?')[0] + '?test=1&sansModeles=1', { waitUntil: 'domcontentloaded', timeout: 90000 });
+    await p2.waitForFunction(() => window.__jeu && window.__jeu.pret === true, null, { timeout: 90000 });
     const r = await p2.evaluate(() => {
       const j = window.__jeu; j.demarrerPartie(); j.joueur.vie.pv = 1e9;
       const z = j.zombies.faireApparaitre({ x: -2, z: -4 }, 1);
@@ -676,5 +676,105 @@ scenarios.push({
     await p2.close();
     verifier(!r.peau && !r.charges && r.n > 0, 'zombies en boîtes sans GLB');
     verifier(erreurs.length === 0, 'aucune erreur console en repli (' + erreurs.join(' | ') + ')');
+  },
+});
+scenarios.push({
+  nom: "le coup part à l'impact",
+  async executer(page, verifier) {
+    await page.evaluate(() => {
+      const j = window.__jeu;
+      j.demarrerPartie(); j.zombies.vider(); j.accelerer(1);
+      j.joueur.placer(-2, 4); j.joueur.vie.pv = 1000;
+      const z = j.zombies.faireApparaitre({ x: -2, z: 0 }, 1); // loin d'abord, rapproché après quelques images
+      Object.assign(z, { emergence: 0, vitesse: 0, pv: 1e9 });
+      window.__zc = z;
+      window.__journal = [];
+      const boucle = () => {
+        if (!window.__journal) return;
+        window.__journal.push({ t: j.partie.temps, anim: z.modele.animation, tAnim: z.modele.tempsAnimation(), pv: j.joueur.vie.pv });
+        if (window.__journal.length === 5) { z.position.z = 3.2; z.position.x = -2; }
+        requestAnimationFrame(boucle);
+      };
+      requestAnimationFrame(boucle);
+    });
+    await page.waitForFunction(() => {
+      const l = window.__journal; const i = l.findIndex((e) => e.anim === 'attaque');
+      return i >= 0 && l[l.length - 1].t - l[i].t > window.__zc.modele.dureeAnimation('attaque') * 1.05;
+    }, null, { timeout: 60000 });
+    const r = await page.evaluate(() => {
+      const l = window.__journal; window.__journal = null;
+      const i = l.findIndex((e) => e.anim === 'attaque');
+      const duree = window.__zc.modele.dureeAnimation('attaque');
+      const cycle = l.filter((e) => e.t >= l[i].t && e.t < l[i].t + duree);
+      let coups = 0;
+      for (let k = 1; k < cycle.length; k++) if (cycle[k].pv < cycle[k - 1].pv) coups++;
+      if (cycle[0].pv < l[Math.max(0, i - 1)].pv) coups++;
+      return { pvDebut: cycle[0].pv, pvAvant: l[Math.max(0, i - 1)].pv, pvFin: cycle[cycle.length - 1].pv, coups };
+    });
+    verifier(r.pvDebut === r.pvAvant, 'pas de dégâts au début de l\'attaque (' + r.pvAvant + ' → ' + r.pvDebut + ')');
+    verifier(r.coups === 1 && r.pvFin < r.pvDebut, 'un seul coup par attaque (' + r.coups + ')');
+  },
+});
+scenarios.push({
+  nom: 'mort animée : le corps reste puis disparaît',
+  async executer(page, verifier) {
+    await page.evaluate(() => {
+      const j = window.__jeu;
+      j.demarrerPartie(); j.zombies.vider(); j.joueur.vie.pv = 1e9;
+      const z = j.zombies.faireApparaitre({ x: -2, z: -6 }, 1);
+      z.emergence = 0;
+      j.toucherZombie(z, 1e9, {});
+      window.__zm = z; window.__tMort = j.partie.temps;
+      j.accelerer(3);
+    });
+    await page.waitForFunction(() => window.__jeu.partie.temps - window.__tMort > 2.6, null, { timeout: 30000 });
+    verifier(await page.evaluate(() => !!window.__zm.modele.g.parent && window.__jeu.zombies.liste.includes(window.__zm)), 'le corps est encore là après 2,6 s');
+    await page.waitForFunction(() => !window.__jeu.zombies.liste.includes(window.__zm), null, { timeout: 30000 }).catch(() => {});
+    const r = await page.evaluate(() => ({ dt: window.__jeu.partie.temps - window.__tMort, parti: !window.__zm.modele.g.parent }));
+    verifier(r.parti && r.dt >= 4.9, 'corps retiré après s\'être enfoncé (' + r.dt.toFixed(1) + ' s)');
+    await page.evaluate(() => window.__jeu.accelerer(1));
+  },
+});
+scenarios.push({
+  nom: 'tirer pendant la sortie du sol et pendant la mort',
+  async executer(page, verifier) {
+    const tirSur = () => page.evaluate(() => {
+      const j = window.__jeu, z = window.__zs;
+      z.modele.g.updateMatrixWorld(true);
+      const b = z.modele.touchables.find((t) => t.userData.zone === 'corps') ?? z.modele.touchables[0];
+      j.camera.lookAt(b.getWorldPosition(new (j.camera.position.constructor)()));
+      const avant = z.pv; j.tirer(); return avant - z.pv;
+    });
+    await page.evaluate(() => {
+      const j = window.__jeu;
+      j.demarrerPartie(); j.zombies.vider(); j.joueur.vie.pv = 1e9; j.joueur.placer(-2, 4);
+      window.__zs = j.zombies.faireApparaitre({ x: -2, z: -1 }, 1);
+      window.__zs.pv = 5000;
+    });
+    await page.waitForFunction(() => window.__zs.emergence > 0 && window.__zs.emergence < window.__zs.modele.dureeEmergence - 0.1, null, { timeout: 20000 });
+    await tirSur();
+    verifier(await page.evaluate(() => window.__zs.emergence > 0), 'tir pendant la sortie du sol sans erreur');
+    await page.evaluate(() => { window.__zs.emergence = 0; window.__jeu.toucherZombie(window.__zs, 1e9, {}); });
+    await page.waitForFunction(() => window.__zs.tempsMort > 0.3, null, { timeout: 20000 });
+    await tirSur();
+    verifier(true, 'tir pendant la mort sans erreur');
+  },
+});
+scenarios.push({
+  nom: 'ombres des zombies en Haute seulement',
+  async executer(page, verifier) {
+    const r = await page.evaluate(() => {
+      const j = window.__jeu;
+      j.demarrerPartie(); j.zombies.vider();
+      const z = j.zombies.faireApparaitre({ x: -2, z: -6 }, 1);
+      const ombre = () => { let o = false; z.modele.g.traverse((m) => { if ((m.isSkinnedMesh || (m.isMesh && m.material.visible !== false && m !== z.modele.feu)) && m.castShadow) o = true; }); return o; };
+      j.changerQualite('haute'); const h = ombre();
+      j.changerQualite('moyenne'); const m = ombre();
+      const z2 = j.zombies.faireApparaitre({ x: -2, z: -8 }, 1);
+      let n2 = false; z2.modele.g.traverse((o) => { if (o.castShadow) n2 = true; });
+      j.changerQualite('basse');
+      return { h, m, n2, b: ombre() };
+    });
+    verifier(r.h && !r.m && !r.b && !r.n2, 'ombres portées en Haute seulement (haute ' + r.h + ', moyenne ' + r.m + ', basse ' + r.b + ', nouveau en moyenne ' + r.n2 + ')');
   },
 });

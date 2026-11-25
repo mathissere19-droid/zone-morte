@@ -8,7 +8,7 @@ import { trouverChemin, ligneLibre } from './regles/navigation.js';
 import { hauteurSol } from './carte.js';
 import { majBrulure } from './regles/combat.js';
 import { creerSuiviBlocage, majSuiviBlocage } from './regles/blocage.js';
-import { choisirAnimation } from './regles/animation-zombie.js';
+import { choisirAnimation, momentImpact, doitAnimer } from './regles/animation-zombie.js';
 import { creerModeleZombie } from './modeles-zombies.js';
 import { creerPerception, majPerception, voit } from './regles/perception.js';
 import { hauteurSurfaces, choisirLien, bordLePlusProche } from './regles/surfaces.js';
@@ -16,6 +16,7 @@ import { hauteurSurfaces, choisirLien, bordLePlusProche } from './regles/surface
 const Z = CONFIG.zombie;
 const E = CONFIG.escalade;
 const PER = CONFIG.perception;
+const ZA = CONFIG.zombie.animation;
 const VITESSES = { marche: Z.vitesseMarche, marcheRapide: Z.vitesseMarcheRapide, course: Z.vitesseCourse };
 
 const geo = {
@@ -99,6 +100,8 @@ export function creerGestionnaireZombies(scene, carte, grille) {
   const liste = [];
   let compteur = 0;
   let modeles = null; // GLB chargés (null : boîtes)
+  let image = 0;
+  let ombresActives = false;
 
   function faireApparaitre(point, vague, rng = Math.random) {
     const type = typeDeplacement(vague, rng, difficulteActive().premiereVagueCoureurs);
@@ -112,7 +115,7 @@ export function creerGestionnaireZombies(scene, carte, grille) {
       vitesse: VITESSES[type] * (0.9 + rng() * 0.2),
       chemin: null, iChemin: 0,
       prochainCalcul: (compteur % 10) * (Z.recalculChemin / 10),
-      attente: 0,
+      tAttaque: null,   // temps écoulé dans l'attaque en cours (null : pas d'attaque)
       mort: false, tempsMort: 0,
       emergence: m.dureeEmergence, // sort du sol
       vitesseReelle: 0,
@@ -124,6 +127,7 @@ export function creerGestionnaireZombies(scene, carte, grille) {
     z.suivi = creerSuiviBlocage(z.position);
     for (const t of m.touchables) t.userData.zombie = z;
     m.g.position.set(z.position.x, z.position.y - (m.enterre ? 1.8 : 0), z.position.z);
+    m.ombres(ombresActives);
     scene.add(m.g);
     liste.push(z);
     return z;
@@ -214,9 +218,18 @@ export function creerGestionnaireZombies(scene, carte, grille) {
   function majZombies(dt, joueur, surCoup, surBrulure, surBloque) {
     const jp = joueur.position;
     const jIlot = joueur.surface?.ilot && joueur.surface.h >= E.hauteurIlot ? joueur.surface : null;
+    image++;
     for (let i = liste.length - 1; i >= 0; i--) {
       const z = liste[i];
       const m = z.modele;
+      // au loin, l'animation n'avance qu'une image sur deux (avec le temps cumulé)
+      const dAnim = Math.hypot(jp.x - z.position.x, jp.z - z.position.z);
+      const animer = (anim) => {
+        z.dtAnim = (z.dtAnim || 0) + dt;
+        if (!doitAnimer(dAnim, image + z.id)) return;
+        m.animer(anim, z.dtAnim);
+        z.dtAnim = 0;
+      };
       const feu = majBrulure(z, dt);
       m.feu.visible = !z.mort && z.brulure?.t > 0;
       if (m.feu.visible) m.feu.scale.set(0.9 + Math.random() * 0.2, 1.6 + Math.random() * 0.4, 0.9 + Math.random() * 0.2);
@@ -224,13 +237,16 @@ export function creerGestionnaireZombies(scene, carte, grille) {
       if (z.mort) {
         if (!z.mortJouee) { z.mortJouee = true; m.jouerMort(); }
         z.tempsMort += dt;
-        m.animer(null, dt);
-        if (z.tempsMort > 2.5) { scene.remove(m.g); liste.splice(i, 1); }
+        animer(null);
+        // le corps reste, puis s'enfonce d'1 m en 1 s avant d'être retiré
+        const enfonce = Math.max(0, z.tempsMort - ZA.corps);
+        m.g.position.y = z.position.y - enfonce;
+        if (enfonce > 1) { scene.remove(m.g); liste.splice(i, 1); }
         continue;
       }
       if (z.emergence > 0) {
         z.emergence -= dt;
-        m.animer(choisirAnimation({ emergence: z.emergence }), dt);
+        animer(choisirAnimation({ emergence: z.emergence }));
         const k = m.enterre ? Math.max(0, z.emergence) * 2.2 : 0;
         m.g.position.set(z.position.x, z.position.y - k, z.position.z);
         continue;
@@ -248,11 +264,18 @@ export function creerGestionnaireZombies(scene, carte, grille) {
       if (z.escalade) {
         angleCible = majEscalade(z, dt);
         enMarche = true; surveille = false;
-      } else if (dist < Z.porteeAttaque && memeNiveau) {
-        z.attente -= dt;
-        if (z.attente <= 0) { z.attente = Z.delaiAttaque; z.frappe = m.dureeAnimation('attaque'); if (m.animation === 'attaque') m.relancer(); surCoup(CONFIG.joueur.degatsZombie, z); }
+      } else if (z.tAttaque != null || (dist < Z.porteeAttaque && memeNiveau)) {
+        // attaque : le coup part à l'instant d'impact de l'animation, si le joueur est encore à portée
+        const duree = m.dureeAnimation('attaque');
+        if (z.tAttaque == null) {
+          z.tAttaque = 0;
+          if (m.animation === 'attaque') m.relancer();
+        }
+        const avant = z.tAttaque;
+        z.tAttaque += dt;
+        if (momentImpact(avant, z.tAttaque, duree) && dist < Z.porteeAttaque * 1.3 && memeNiveau) surCoup(CONFIG.joueur.degatsZombie, z);
+        if (z.tAttaque >= duree) z.tAttaque = null;
       } else {
-        z.attente = Math.min(z.attente, 0.3);
         const traque = etat === 'traque';
         let but = traque ? { x: jp.x, z: jp.z } : z.perception.cible;
         if (z.surface && !(traque && jIlot === z.surface)) {
@@ -332,7 +355,6 @@ export function creerGestionnaireZombies(scene, carte, grille) {
       // en fouille, un zombie arrêté sur sa cible n'est pas bloqué ; sur un îlot, il est près du joueur
       if (surveille && majSuiviBlocage(z.suivi, z.position, dt, z.surface ? 0 : dist)) { surBloque?.(z); continue; }
       if (z.recul > 0) z.recul -= dt;
-      if (z.frappe > 0) z.frappe -= dt;
 
       // orientation et animation
       let da = angleCible - m.g.rotation.y;
@@ -342,11 +364,11 @@ export function creerGestionnaireZombies(scene, carte, grille) {
       const v = dt > 0 ? Math.hypot(z.position.x - ax, z.position.z - az) / dt : 0;
       z.vitesseReelle += (v - z.vitesseReelle) * Math.min(1, dt * 10); // lissée
       const e = z.escalade;
-      m.animer(choisirAnimation({
+      animer(choisirAnimation({
         emergence: 0, mort: false,
         escalade: e ? (e.vers.y > e.de.y ? 'monte' : 'descend') : null,
-        attaque: z.frappe > 0, rampe: !!z.rampe, vitesse: enMarche ? z.vitesseReelle : 0, type: z.type,
-      }), dt);
+        attaque: z.tAttaque != null, rampe: !!z.rampe, vitesse: enMarche ? z.vitesseReelle : 0, type: z.type,
+      }));
     }
   }
 
@@ -354,6 +376,11 @@ export function creerGestionnaireZombies(scene, carte, grille) {
     liste, faireApparaitre, majZombies, cibles, infliger, tuerTous, vider,
     get nbFlairs() { return nbFlairs; },
     definirModeles(m) { modeles = m; },
+    // ombres portées des zombies (Haute seulement)
+    ombres(actif) {
+      ombresActives = actif;
+      for (const z of liste) z.modele.ombres(actif);
+    },
     get modelesCharges() { return !!modeles; },
   };
 }

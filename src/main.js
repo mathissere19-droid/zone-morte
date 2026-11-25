@@ -104,6 +104,7 @@ inventaire = creerInventaire();
 
 const effets = creerEffets(scene);
 rendu.surQualite((p) => effets.qualite(p));
+rendu.surQualite((p) => zombies.ombres(p.ombres === 'tout')); // ombres des zombies : Haute seulement
 
 const armes = creerArmes({
   camera, scene, effets, inventaire, joueur,
