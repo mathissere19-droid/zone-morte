@@ -58,4 +58,4 @@ Tous les chiffres (prix, dégâts, vie, vagues…) sont dans `src/config.js`.
 - `npm test` : tests des règles
 - `npm run fumee` : lance le jeu dans Edge sans fenêtre et vérifie qu'il marche (en qualité Basse)
 - `node outils/capture.mjs haute <x> <z> <angle> <fichier.png> [lampe] [effets]` : capture d'écran pour juger le rendu
-- Zombies : les FBX Mixamo (non versionnés) sont dans `assets/mixamo/` ; pour régénérer `assets/zombies/*.glb` : `"C:Program FilesBlender FoundationBlender 5.3lender.exe" -b --factory-startup -P outils/convertir-zombies.py`
+- Zombies : les FBX Mixamo (non versionnés) sont dans `assets/mixamo/` ; pour régénérer `assets/zombies/*.glb` : `"C:\Program Files\Blender Foundation\Blender 5.3\blender.exe" -b --factory-startup -P outils/convertir-zombies.py`
