@@ -21,6 +21,7 @@ import { subir, majVie, estMort } from './regles/vie.js';
 import { IDS_DIFFICULTE, choisirDifficulte, difficulteActive, degatsRecus } from './regles/difficulte.js';
 import { creerPortefeuille, gainCoup, crediter, payer, tirageCaisse, acheterMur } from './regles/economie.js';
 import { creerInventaire, armeActive, ajouterArme, remplirTout, rendreGrenades } from './regles/inventaire.js';
+import { rayonBruit, dansOmbre } from './regles/perception.js';
 
 const modeTest = new URLSearchParams(location.search).has('test');
 const ui = creerInterface();
@@ -227,7 +228,7 @@ function pointsApparitionActifs() {
 function replacerZombie(z) {
   const pt = choisirPointApparition(pointsApparitionActifs(), joueur.position, pointVisible, Math.random);
   z.position.x = pt.x; z.position.z = pt.z; z.position.y = hauteurSol(pt.x, pt.z);
-  z.emergence = 0.8; z.chemin = null;
+  z.emergence = 0.8; z.chemin = null; z.surface = null; z.escalade = null;
   z.suivi = creerSuiviBlocage(z.position);
 }
 
@@ -312,6 +313,7 @@ changerQualite(qualiteInitiale);
 afficherMenu();
 
 // ---------- Boucle ----------
+let bruitTir = 0, rayonTir = 0;
 function boucle(dtBrut) {
   const dt = Math.min(dtBrut, 0.1) * jeu.vitesseTemps;
   majCarte(carte, dt);
@@ -333,8 +335,13 @@ function boucle(dtBrut) {
       enregistrerApparition(partie);
       delaiApparition = 0.35;
     }
+    // ce que les zombies perçoivent : bruit (le dernier tir résonne le temps d'une perception) et ombre
+    bruitTir = Math.max(0, bruitTir - dt);
+    joueur.bruit = bruitTir > 0 ? rayonTir : rayonBruit({ sprint: joueur.enSprint, mouvement: joueur.enMouvement, accroupi: joueur.accroupi });
+    joueur.dansOmbre = dansOmbre(joueur.position, carte.sourcesLumiere, lampe.allumee);
     zombies.majZombies(dt, joueur, (d) => blesserJoueur(d), (z, d) => toucherZombie(z, d, { brulure: true }), replacerZombie);
     armes.majArmes(dt, !joueur.occupe);
+    if (armes.aTire) { rayonTir = rayonBruit({ tir: true, armeId: armes.aTire }); bruitTir = CONFIG.perception.intervalle * 1.5; }
     bonus.majBonus(dt, joueur, appliquerBonus);
     doubles = Math.max(0, doubles - dt);
 

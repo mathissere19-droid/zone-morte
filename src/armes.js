@@ -62,6 +62,7 @@ export function creerArmes({ camera, scene, effets, inventaire, cibles, obstacle
   const grenades = [];
   const grenadesMain = [];
   let derniereExplosion = null;
+  let aTire = null; // id de l'arme qui a tiré pendant cette image (bruit pour les zombies)
   const geoGrenade = new THREE.SphereGeometry(0.06, 8, 6);
   const matGrenade = new THREE.MeshStandardMaterial({ color: 0x3d4a2a, roughness: 0.6, metalness: 0.4 });
 
@@ -171,6 +172,7 @@ export function creerArmes({ camera, scene, effets, inventaire, cibles, obstacle
     const a = armeActive(etat.inventaire);
     const def = CONFIG.armes[a.id];
     if (!tirer(etat.inventaire)) return false;
+    aTire = a.id;
     const visee = (joueur.vise ? 0.4 : 1) * (joueur.accroupi ? CONFIG.joueur.accroupi.dispersion : 1);
     const mouvement = joueur.enMouvement ? 1.5 : 1;
     const disp = def.dispersion * visee * mouvement + etat.dispersionActuelle;
@@ -299,6 +301,7 @@ export function creerArmes({ camera, scene, effets, inventaire, cibles, obstacle
   }
 
   function majArmes(dt, actif) {
+    aTire = null;
     afficherArme();
     const a = armeActive(etat.inventaire);
     const def = CONFIG.armes[a.id];
@@ -376,6 +379,7 @@ export function creerArmes({ camera, scene, effets, inventaire, cibles, obstacle
     etat, majArmes,
     tirForce: () => tir(),
     get enRechargement() { return etat.rechargement > 0; },
+    get aTire() { return aTire; },
     get derniereExplosion() { return derniereExplosion; },
     vider() { for (const g of grenadesMain) scene.remove(g.m); grenadesMain.length = 0; derniereExplosion = null; },
     get dispersion() { return CONFIG.armes[armeActive(etat.inventaire).id].dispersion + etat.dispersionActuelle; },

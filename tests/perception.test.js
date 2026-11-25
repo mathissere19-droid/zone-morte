@@ -50,15 +50,16 @@ test('perception : repéré → traque, dernière position = joueur', () => {
   assert.equal(majPerception(p, { repere: true, joueur: { x: 5, z: 6 } }, 0.2, 15, Math.random), 'traque');
   assert.deepEqual(p.derniere, { x: 5, z: 6 });
 });
-test('perception : traque sans repérage → recherche vers la dernière position', () => {
+test('perception : traque sans repérage → recherche là où il a perdu la trace', () => {
   const p = creerPerception({ x: 0, z: 0 });
   majPerception(p, { repere: true, joueur: { x: 5, z: 6 } }, 0.2, 15, Math.random);
-  assert.equal(majPerception(p, { repere: false, joueur: { x: 50, z: 60 } }, 0.2, 15, Math.random), 'recherche');
-  assert.deepEqual(p.cible, { x: 5, z: 6 });
+  assert.equal(majPerception(p, { repere: false, joueur: { x: 50, z: 60 } }, 0.2, 15, Math.random), 'traque', 'il garde la trace un instant');
+  assert.equal(majPerception(p, { repere: false, joueur: { x: 50, z: 60 } }, CONFIG.perception.memoire, 15, Math.random), 'recherche');
+  assert.deepEqual(p.cible, { x: 50, z: 60 }); // là où il a perdu sa trace
 });
 test('perception : cible atteinte → nouvelle cible à moins de 6 m de la dernière position', () => {
   const p = creerPerception({ x: 0, z: 0 });
-  majPerception(p, { repere: false, joueur: { x: 0, z: 0 } }, 0.2, 15, Math.random);
+  majPerception(p, { repere: false, joueur: { x: 0, z: 0 } }, CONFIG.perception.memoire, 15, Math.random);
   for (const r of [0, 0.3, 0.99]) {
     p.cible = null;
     majPerception(p, { repere: false, joueur: { x: 50, z: 50 } }, 0.2, 15, rngFixe(r, r));
@@ -70,7 +71,7 @@ test('perception : flair après 15 s en Soldat, 6 s en Cauchemar', () => {
   for (const [id, delai] of [['soldat', 15], ['cauchemar', 6]]) {
     assert.equal(CONFIG.difficultes[id].delaiFlair, delai);
     const p = creerPerception({ x: 0, z: 0 });
-    majPerception(p, { repere: false, joueur: { x: 0, z: 0 } }, 0.2, delai, Math.random); // → recherche
+    majPerception(p, { repere: false, joueur: { x: 0, z: 0 } }, CONFIG.perception.memoire, delai, Math.random); // → recherche
     let r, t = 0;
     do { r = majPerception(p, { repere: false, joueur: { x: 40, z: 40 } }, 0.2, delai, Math.random); t += 0.2; } while (r === 'recherche' && t < 100);
     assert.equal(r, 'flair');
@@ -81,11 +82,21 @@ test('perception : flair après 15 s en Soldat, 6 s en Cauchemar', () => {
 });
 test('perception : une alerte remet en traque', () => {
   const p = creerPerception({ x: 0, z: 0 });
-  majPerception(p, { repere: false, joueur: { x: 0, z: 0 } }, 0.2, 15, Math.random);
+  majPerception(p, { repere: false, joueur: { x: 0, z: 0 } }, CONFIG.perception.memoire, 15, Math.random);
   assert.equal(p.etat, 'recherche');
   assert.equal(majPerception(p, { repere: false, alerte: true, joueur: { x: 3, z: 3 } }, 0.2, 15, Math.random), 'traque');
   assert.equal(p.sansContact, 0);
 });
 test('délais de flair par difficulté', () => {
   assert.deepEqual(['recrue', 'soldat', 'veteran', 'cauchemar'].map((d) => CONFIG.difficultes[d].delaiFlair), [15, 15, 10, 6]);
+});
+
+test('perception : après un flair, il reste en traque le temps de rejoindre le joueur', () => {
+  const p = creerPerception({ x: 0, z: 0 });
+  majPerception(p, { repere: false, joueur: { x: 0, z: 0 } }, CONFIG.perception.memoire, 6, Math.random); // → recherche
+  assert.equal(majPerception(p, { repere: false, joueur: { x: 9, z: 9 } }, 6, 6, Math.random), 'flair');
+  for (let t = 0; t < CONFIG.perception.memoireFlair - 0.5; t += 0.2) {
+    assert.equal(majPerception(p, { repere: false, joueur: { x: 9, z: 9 } }, 0.2, 6, Math.random), 'traque');
+  }
+  assert.equal(majPerception(p, { repere: false, joueur: { x: 9, z: 9 } }, 1, 6, Math.random), 'recherche');
 });

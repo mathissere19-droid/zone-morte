@@ -548,3 +548,66 @@ scenarios.push({
     verifier(e.y > 2.5 && e.y < 3, `explosion posée sur le toit du conteneur (y=${e.y.toFixed(2)})`);
   },
 });
+
+// --- Tâche 5 : perception et escalade des zombies ---
+// joueur immobile en hauteur, invulnérable ; un zombie part de (-9, 2)
+const joueurEnHauteur = (page, x, z, y) => page.evaluate(([x, z, y]) => {
+  const j = window.__jeu;
+  j.joueur.position.y = y; j.joueur.sommetSaut = y; j.joueur.majCamera(); j.joueur.vie.pv = 1e9;
+  const zb = j.zombies.faireApparaitre({ x: -9, z: 2 }, 1); zb.emergence = 0; zb.pv = 1e9;
+  window.__z = zb;
+  j.accelerer(3);
+}, [x, z, y]);
+async function zombieRejoint(page, verifier, yMin, quoi) {
+  const monte = await page.waitForFunction((y) => window.__z.position.y > y, yMin, { timeout: 60000 }).then(() => true, () => false);
+  const proche = monte && await page.waitForFunction(() => {
+    const p = window.__jeu.joueur.position, z = window.__z.position;
+    return Math.hypot(p.x - z.x, p.z - z.z) < 2;
+  }, null, { timeout: 30000 }).then(() => true, () => false);
+  const r = await page.evaluate(() => {
+    window.__jeu.accelerer(1);
+    const z = window.__z;
+    return { x: z.position.x.toFixed(2), y: z.position.y.toFixed(2), z: z.position.z.toFixed(2), etat: z.perception?.etat, surface: z.surface?.id ?? null };
+  });
+  verifier(monte && proche, `${quoi} (${JSON.stringify(r)})`);
+}
+scenarios.push({
+  nom: 'un zombie rejoint le joueur sur un conteneur',
+  async executer(page, verifier) {
+    await nouvellePartie(page, -13.8, 9, 0);
+    await joueurEnHauteur(page, -13.8, 9, 2.6);
+    await zombieRejoint(page, verifier, 2.5, 'le zombie grimpe sur le conteneur et rejoint le joueur');
+  },
+});
+scenarios.push({
+  nom: 'échelle : un zombie rejoint le joueur sur le toit du bunker',
+  async executer(page, verifier) {
+    await nouvellePartie(page, 20, 12, 0);
+    await joueurEnHauteur(page, 20, 12, 2.9);
+    await zombieRejoint(page, verifier, 2.8, 'le zombie monte sur le toit du bunker et rejoint le joueur');
+  },
+});
+scenarios.push({
+  nom: 'caché puis retrouvé par flair (Soldat)',
+  async executer(page, verifier) {
+    await nouvellePartie(page, -16, -10, 0);
+    await page.evaluate(() => {
+      const j = window.__jeu;
+      j.joueur.vie.pv = 1e9; j.joueur.accroupi = true;
+      if (j.lampe.allumee) j.entrees.appuis.add('KeyF');
+      const z = j.zombies.faireApparaitre({ x: 10, z: 15 }, 1); z.emergence = 0; z.pv = 1e9;
+      z.modele.g.rotation.y = Math.PI / 4; // dos tourné au joueur
+      z.perception = { etat: 'recherche', derniere: { x: 10, z: 15 }, sansContact: 0, cible: null };
+      window.__z = z; window.__flairs = j.zombies.nbFlairs;
+      j.accelerer(5);
+    });
+    await page.waitForFunction(() => window.__jeu.joueur.dansOmbre !== undefined, null, { timeout: 10000 });
+    verifier(await page.evaluate(() => window.__jeu.joueur.dansOmbre && window.__jeu.joueur.accroupi), 'joueur accroupi dans l\'ombre');
+    await page.waitForFunction(() => window.__z.perception.sansContact > 5, null, { timeout: 60000 });
+    const p = await page.evaluate(() => ({ etat: window.__z.perception.etat, d: Math.hypot(window.__z.position.x - 10, window.__z.position.z - 15) }));
+    verifier(p.etat === 'recherche' && p.d < 8, `il fouille autour de la dernière position connue (${JSON.stringify(p)})`);
+    const ok = await page.waitForFunction(() => window.__z.perception.etat === 'traque', null, { timeout: 60000 }).then(() => true, () => false);
+    const r = await page.evaluate(() => { window.__jeu.accelerer(1); return { flairs: window.__jeu.zombies.nbFlairs - window.__flairs, derniere: window.__z.perception.derniere }; });
+    verifier(ok && r.flairs >= 1 && Math.hypot(r.derniere.x + 16, r.derniere.z + 10) < 1, `retrouvé par flair (${JSON.stringify(r)})`);
+  },
+});

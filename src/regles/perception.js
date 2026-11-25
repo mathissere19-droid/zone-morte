@@ -4,7 +4,7 @@ import { CONFIG } from '../config.js';
 const P = () => CONFIG.perception;
 
 export function creerPerception(pos) {
-  return { etat: 'traque', derniere: { x: pos.x, z: pos.z }, sansContact: 0, cible: null };
+  return { etat: 'traque', derniere: { x: pos.x, z: pos.z }, sansContact: 0, cible: null, memoire: P().memoire };
 }
 
 // Distance à laquelle le joueur s'entend : tir (selon l'arme), sprint, marche, accroupi ; immobile = 0.
@@ -33,13 +33,18 @@ export function dansOmbre(pos, sources, lampeAllumee) {
   return !sources.some((s) => Math.hypot(pos.x - s.x, pos.z - s.z) <= s.rayon);
 }
 
+// En traque, la position du joueur reste connue pendant p.memoire secondes sans repérage.
 // L'appelant calcule `repere` (vue, bruit ou contact) et remet `p.cible = null` quand le zombie l'atteint.
 export function majPerception(p, { repere, joueur, alerte }, dt, delaiFlair, rng = Math.random) {
   if (repere || alerte) {
     p.etat = 'traque'; p.derniere = { x: joueur.x, z: joueur.z }; p.sansContact = 0; p.cible = null;
+    p.memoire = Math.max(p.memoire ?? 0, P().memoire);
     return 'traque';
   }
   if (p.etat === 'traque') {
+    // il garde la trace un instant (après un flair : le temps de rejoindre le joueur, même perché)
+    p.memoire = (p.memoire ?? 0) - dt;
+    if (p.memoire > 1e-9) { p.derniere = { x: joueur.x, z: joueur.z }; return 'traque'; }
     p.etat = 'recherche'; p.sansContact = 0; p.cible = { ...p.derniere };
     return 'recherche';
   }
@@ -47,6 +52,7 @@ export function majPerception(p, { repere, joueur, alerte }, dt, delaiFlair, rng
   if (p.sansContact >= delaiFlair - 1e-9) {
     // la horde finit toujours par retrouver le joueur
     p.etat = 'traque'; p.derniere = { x: joueur.x, z: joueur.z }; p.sansContact = 0; p.cible = null;
+    p.memoire = P().memoireFlair;
     return 'flair';
   }
   if (!p.cible) {

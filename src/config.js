@@ -60,7 +60,7 @@ export const CONFIG = {
   grenade: { max: 2, degats: 300, rayon: 5, degatsJoueurMax: 50, fusee: 2, vitesse: 14, delai: 0.8 },
 
   // perception des zombies (Lot 2) : distances en m, cône en degrés, intervalle en s
-  perception: { vue: 25, vueOmbre: 12, cone: 120, contact: 2, alerte: 8, fouille: 6, intervalle: 0.2, bruit: { tir: 30, sprint: 10, marche: 5, accroupi: 1.5 } },
+  perception: { vue: 25, vueOmbre: 12, cone: 120, contact: 2, alerte: 8, fouille: 6, intervalle: 0.2, memoire: 1.5, memoireFlair: 20, bruit: { tir: 30, sprint: 10, marche: 5, accroupi: 1.5 } },
 
   couteau: { degats: 150, portee: 1.6, delai: 0.6 },
 

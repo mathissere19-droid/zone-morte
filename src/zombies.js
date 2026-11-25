@@ -8,8 +8,12 @@ import { trouverChemin, ligneLibre } from './regles/navigation.js';
 import { hauteurSol } from './carte.js';
 import { majBrulure } from './regles/combat.js';
 import { creerSuiviBlocage, majSuiviBlocage } from './regles/blocage.js';
+import { creerPerception, majPerception, voit } from './regles/perception.js';
+import { hauteurSurfaces, choisirLien, bordLePlusProche } from './regles/surfaces.js';
 
 const Z = CONFIG.zombie;
+const E = CONFIG.escalade;
+const PER = CONFIG.perception;
 const VITESSES = { marche: Z.vitesseMarche, marcheRapide: Z.vitesseMarcheRapide, course: Z.vitesseCourse };
 
 const geo = {
@@ -66,6 +70,10 @@ export function creerGestionnaireZombies(scene, carte, grille) {
       mort: false, tempsMort: 0,
       phase: rng() * 10,
       emergence: 0.8, // sort du sol
+      perception: null,  // créée à la première mise à jour (connaît la position du joueur : apparition en traque)
+      prochainePerception: (compteur % 5) * (PER.intervalle / 5), cumulPerception: 0, alerte: false,
+      surface: null,     // îlot en hauteur où il se trouve (null = sol)
+      escalade: null,    // { de, vers, t, duree, surface } pendant une montée ou un saut vers le bas
     };
     z.suivi = creerSuiviBlocage(z.position);
     for (const t of m.touchables) t.userData.zombie = z;
@@ -101,10 +109,65 @@ export function creerGestionnaireZombies(scene, carte, grille) {
     liste.length = 0;
   }
 
+  let nbFlairs = 0;
+
+  // Perception : vue, bruit, contact, alerte des voisins ; renvoie l'état ('traque' ou 'recherche').
+  function majPerceptionZombie(z, dt, joueur) {
+    const jp = joueur.position;
+    if (!z.perception) z.perception = creerPerception(jp);
+    z.cumulPerception += dt;
+    z.prochainePerception -= dt;
+    if (z.prochainePerception > 0) return z.perception.etat;
+    z.prochainePerception += PER.intervalle;
+    const d = Math.hypot(jp.x - z.position.x, jp.z - z.position.z);
+    // sur le même îlot (toit, conteneur) : à découvert, il le voit
+    const memeIlot = !!z.surface && z.surface === joueur.surface;
+    const repere = d <= PER.contact || d <= (joueur.bruit ?? 0) || memeIlot ||
+      voit({ zombie: z.position, orientation: z.modele.g.rotation.y, joueur: jp,
+        ligneLibre: ligneLibre(grille, z.position, jp), cacheDansOmbre: !!(joueur.accroupi && joueur.dansOmbre) });
+    const avant = z.perception.etat;
+    const r = majPerception(z.perception, { repere, joueur: jp, alerte: z.alerte }, z.cumulPerception, difficulteActive().delaiFlair);
+    z.alerte = false; z.cumulPerception = 0;
+    if (r === 'flair') nbFlairs++;
+    if (repere && avant !== 'traque') {
+      // il prévient les vivants proches
+      for (const o of liste) {
+        if (o !== z && !o.mort && Math.hypot(o.position.x - z.position.x, o.position.z - z.position.z) <= PER.alerte) o.alerte = true;
+      }
+    }
+    if (z.perception.etat !== avant) z.chemin = null;
+    return z.perception.etat;
+  }
+
+  function commencerEscalade(z, vers, duree, surface) {
+    z.escalade = { de: { ...z.position }, vers, t: 0, duree, surface };
+    z.chemin = null;
+  }
+
+  // Avance l'escalade (montée en ligne droite ou saut vers le bas) ; renvoie l'angle de déplacement.
+  function majEscalade(z, dt) {
+    const e = z.escalade;
+    e.t += dt;
+    const k = Math.min(1, e.t / e.duree);
+    const monte = e.vers.y > e.de.y;
+    z.position.x = e.de.x + (e.vers.x - e.de.x) * k;
+    z.position.z = e.de.z + (e.vers.z - e.de.z) * k;
+    // en montant : il grimpe d'abord, puis se hisse sur le bord ; en sautant : petite parabole
+    z.position.y = monte ? e.de.y + (e.vers.y - e.de.y) * Math.min(1, k * 1.25)
+      : e.de.y + (e.vers.y - e.de.y) * k * k + Math.sin(k * Math.PI) * 0.3;
+    if (k >= 1) {
+      z.position.y = e.vers.y; z.surface = e.surface; z.escalade = null;
+      z.suivi = creerSuiviBlocage(z.position);
+    }
+    return Math.atan2(e.vers.x - e.de.x, e.vers.z - e.de.z);
+  }
+
   // surBrulure(z, degats) : dégâts de feu, à faire passer par le même chemin que les tirs (comptage des morts)
   // surBloque(z) : zombie immobile trop longtemps loin du joueur, à replacer
+  // joueur.bruit (m), joueur.dansOmbre (main.js) ; joueur.accroupi, joueur.surface (joueur.js)
   function majZombies(dt, joueur, surCoup, surBrulure, surBloque) {
     const jp = joueur.position;
+    const jIlot = joueur.surface?.ilot && joueur.surface.h >= E.hauteurIlot ? joueur.surface : null;
     for (let i = liste.length - 1; i >= 0; i--) {
       const z = liste[i];
       const m = z.modele;
@@ -125,54 +188,100 @@ export function creerGestionnaireZombies(scene, carte, grille) {
         continue;
       }
 
+      const etat = majPerceptionZombie(z, dt, joueur);
       const dx = jp.x - z.position.x, dz = jp.z - z.position.z;
       const dist = Math.hypot(dx, dz);
       const memeNiveau = Math.abs(jp.y - z.position.y) < 1.2;
       let angleCible = Math.atan2(dx, dz);
       let enMarche = false;
+      let surveille = true; // détection de blocage
 
-      if (dist < Z.porteeAttaque && memeNiveau) {
+      if (z.escalade) {
+        angleCible = majEscalade(z, dt);
+        enMarche = true; surveille = false;
+      } else if (dist < Z.porteeAttaque && memeNiveau) {
         z.attente -= dt;
         if (z.attente <= 0) { z.attente = Z.delaiAttaque; z.frappe = 0.35; surCoup(CONFIG.joueur.degatsZombie, z); }
       } else {
         z.attente = Math.min(z.attente, 0.3);
-        let cx = jp.x, cz = jp.z;
-        const direct = memeNiveau && dist < Z.distanceDirecte && ligneLibre(grille, z.position, jp);
-        if (!direct) {
-          z.prochainCalcul -= dt;
-          if (z.prochainCalcul <= 0 || !z.chemin) {
-            z.prochainCalcul = Z.recalculChemin;
-            z.chemin = trouverChemin(grille, z.position, jp);
-            z.iChemin = 0;
+        const traque = etat === 'traque';
+        let but = traque ? { x: jp.x, z: jp.z } : z.perception.cible;
+        if (z.surface && !(traque && jIlot === z.surface)) {
+          // le joueur n'est plus sur son îlot : il saute en bas, au bord le plus proche de son but
+          const bord = bordLePlusProche(z.surface, but ?? jp);
+          commencerEscalade(z, { x: bord.x, y: hauteurSurfaces(carte.surfaces, bord.x, bord.z, 0).h, z: bord.z }, E.sautBas, null);
+          continue;
+        }
+        const lien = !z.surface && traque && jIlot ? choisirLien(carte.liens, jIlot.id, z.position) : null;
+        if (lien) {
+          if (Math.hypot(lien.bas.x - z.position.x, lien.bas.z - z.position.z) < 1) { // le pied est souvent dans une case bloquée de la grille
+            commencerEscalade(z, { x: lien.haut.x, y: lien.haut.h, z: lien.haut.z }, lien.duree, jIlot);
+            continue;
           }
-          if (z.chemin && z.chemin.length) {
-            while (z.iChemin < z.chemin.length - 1 &&
-              Math.hypot(z.chemin[z.iChemin].x - z.position.x, z.chemin[z.iChemin].z - z.position.z) < 0.5) z.iChemin++;
-            // raccourci : viser le point suivant s'il est visible
-            if (z.iChemin < z.chemin.length - 1 && ligneLibre(grille, z.position, z.chemin[z.iChemin + 1])) z.iChemin++;
-            cx = z.chemin[z.iChemin].x; cz = z.chemin[z.iChemin].z;
+          but = lien.bas;
+        }
+        if (!but) but = { x: z.position.x, z: z.position.z }; // fouille : nouvelle cible à la prochaine perception
+        let cx = but.x, cz = but.z;
+        if (!z.surface) {
+          // au sol : A* (sur un îlot : déplacement direct vers le joueur)
+          const direct = (!traque || memeNiveau || lien) && Math.hypot(but.x - z.position.x, but.z - z.position.z) < Z.distanceDirecte &&
+            ligneLibre(grille, z.position, but);
+          if (!direct) {
+            z.prochainCalcul -= dt;
+            const butChange = !z.butChemin || Math.hypot(z.butChemin.x - but.x, z.butChemin.z - but.z) > 1;
+            if (z.prochainCalcul <= 0 || !z.chemin || butChange) {
+              z.prochainCalcul = Z.recalculChemin;
+              z.chemin = trouverChemin(grille, z.position, but);
+              z.butChemin = { x: but.x, z: but.z };
+              z.iChemin = 0;
+            }
+            if (z.chemin && z.chemin.length) {
+              while (z.iChemin < z.chemin.length - 1 &&
+                Math.hypot(z.chemin[z.iChemin].x - z.position.x, z.chemin[z.iChemin].z - z.position.z) < 0.5) z.iChemin++;
+              // raccourci : viser le point suivant s'il est visible
+              if (z.iChemin < z.chemin.length - 1 && ligneLibre(grille, z.position, z.chemin[z.iChemin + 1])) z.iChemin++;
+              cx = z.chemin[z.iChemin].x; cz = z.chemin[z.iChemin].z;
+            }
+            // chemin null → déplacement direct (ne jamais rester figé) ; en fouille, cible inatteignable abandonnée
+            else if (!traque) { z.perception.cible = null; cx = z.position.x; cz = z.position.z; }
           }
-          // chemin null → déplacement direct vers le joueur (ne jamais rester figé)
+        }
+        if (!traque && z.perception.cible) {
+          // cible de fouille atteinte (ou au plus près possible) : la perception en tirera une autre
+          const fin = z.chemin?.[z.chemin.length - 1];
+          const dCible = Math.hypot(but.x - z.position.x, but.z - z.position.z);
+          if (dCible < 0.8 || (fin && z.iChemin === z.chemin.length - 1 && Math.hypot(fin.x - z.position.x, fin.z - z.position.z) < 0.5)) {
+            z.perception.cible = null;
+          }
         }
         let mx = cx - z.position.x, mz = cz - z.position.z;
-        const l = Math.hypot(mx, mz) || 1;
-        mx /= l; mz /= l;
-        // séparation entre zombies
-        for (const o of liste) {
-          if (o === z || o.mort) continue;
-          const ox = z.position.x - o.position.x, oz = z.position.z - o.position.z;
-          const d = Math.hypot(ox, oz);
-          if (d > 0.001 && d < 0.7) { mx += (ox / d) * (0.7 - d) * 2; mz += (oz / d) * (0.7 - d) * 2; }
-        }
-        const lm = Math.hypot(mx, mz) || 1;
-        const v = z.vitesse * dt * (z.recul > 0 ? 0.3 : 1);
-        const p = deplacer(z.position, (mx / lm) * v, (mz / lm) * v, Z.rayon, carte.aabbsZombies, z.position.y);
-        z.position.x = p.x; z.position.z = p.z;
-        z.position.y = hauteurSol(p.x, p.z, z.position.y);
-        angleCible = Math.atan2(mx, mz);
-        enMarche = true;
+        const l = Math.hypot(mx, mz);
+        if (l > 0.05) {
+          mx /= l; mz /= l;
+          // séparation entre zombies (même niveau)
+          for (const o of liste) {
+            if (o === z || o.mort || Math.abs(o.position.y - z.position.y) > 1) continue;
+            const ox = z.position.x - o.position.x, oz = z.position.z - o.position.z;
+            const d = Math.hypot(ox, oz);
+            if (d > 0.001 && d < 0.7) { mx += (ox / d) * (0.7 - d) * 2; mz += (oz / d) * (0.7 - d) * 2; }
+          }
+          const lm = Math.hypot(mx, mz) || 1;
+          const v = z.vitesse * dt * (z.recul > 0 ? 0.3 : 1) * (traque ? 1 : 0.6); // il fouille sans se presser
+          const p = deplacer(z.position, (mx / lm) * v, (mz / lm) * v, Z.rayon, carte.aabbsZombies, z.position.y);
+          if (z.surface) {
+            // borné au-dessus de l'îlot (ne tombe pas du bord)
+            const s = z.surface;
+            p.x = Math.min(s.maxX - Z.rayon, Math.max(s.minX + Z.rayon, p.x));
+            p.z = Math.min(s.maxZ - Z.rayon, Math.max(s.minZ + Z.rayon, p.z));
+          }
+          z.position.x = p.x; z.position.z = p.z;
+          z.position.y = hauteurSol(p.x, p.z, z.position.y);
+          angleCible = Math.atan2(mx, mz);
+          enMarche = true;
+        } else surveille = traque;
       }
-      if (majSuiviBlocage(z.suivi, z.position, dt, dist)) { surBloque?.(z); continue; }
+      // en fouille, un zombie arrêté sur sa cible n'est pas bloqué ; sur un îlot, il est près du joueur
+      if (surveille && majSuiviBlocage(z.suivi, z.position, dt, z.surface ? 0 : dist)) { surBloque?.(z); continue; }
       if (z.recul > 0) z.recul -= dt;
       if (z.frappe > 0) z.frappe -= dt;
 
@@ -185,12 +294,14 @@ export function creerGestionnaireZombies(scene, carte, grille) {
       const amp = enMarche ? (z.type === 'course' ? 0.9 : 0.5) : 0.05;
       m.jambeG.rotation.x = Math.sin(z.phase) * amp;
       m.jambeD.rotation.x = -Math.sin(z.phase) * amp;
-      m.corps.rotation.x = (z.type === 'course' ? 0.35 : 0.15) + (z.recul > 0 ? -0.3 : 0);
+      const grimpe = z.escalade && z.escalade.vers.y > z.escalade.de.y;
+      m.corps.rotation.x = (z.type === 'course' ? 0.35 : 0.15) + (z.recul > 0 ? -0.3 : 0) + (grimpe ? 0.3 : 0);
       const frappe = z.frappe > 0 ? Math.sin((0.35 - z.frappe) / 0.35 * Math.PI) * 0.9 : 0;
-      m.brasG.rotation.x = Math.sin(z.phase * 0.5) * 0.15 - frappe;
-      m.brasD.rotation.x = -Math.sin(z.phase * 0.5) * 0.15 - frappe;
+      const bras = grimpe ? -2.4 : 0; // bras levés pour grimper
+      m.brasG.rotation.x = Math.sin(z.phase * 0.5) * 0.15 - frappe + bras;
+      m.brasD.rotation.x = -Math.sin(z.phase * 0.5) * 0.15 - frappe + bras;
     }
   }
 
-  return { liste, faireApparaitre, majZombies, cibles, infliger, tuerTous, vider };
+  return { liste, faireApparaitre, majZombies, cibles, infliger, tuerTous, vider, get nbFlairs() { return nbFlairs; } };
 }
