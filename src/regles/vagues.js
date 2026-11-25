@@ -1,4 +1,5 @@
 // Formules de progression des vagues.
+import { CONFIG } from '../config.js';
 
 export function nombreZombies(v) {
   return Math.round(6 + 4 * v + 0.15 * v * v);
@@ -17,4 +18,13 @@ export function partCoureurs(v, premiere = 5) {
 export function typeDeplacement(v, rng, premiere = 5) {
   if (rng() < partCoureurs(v, premiere)) return 'course';
   return v > 12 ? 'marcheRapide' : 'marche';
+}
+
+export function estVagueBoss(v) {
+  const { premiereVague, intervalle } = CONFIG.boss;
+  return v >= premiereVague && (v - premiereVague) % intervalle === 0;
+}
+
+export function pvBoss(pvZombieVague) {
+  return pvZombieVague * CONFIG.boss.multiplicateurPv;
 }

@@ -69,7 +69,17 @@ export const CONFIG = {
     porteeAttaque: 1.3, delaiAttaque: 1.0, rayon: 0.35,
     recalculChemin: 0.5, distanceDirecte: 6,
     antiBlocage: { deplacementMin: 0.3, duree: 8, distanceMin: 3 },
+    // rampeur : seuil = part des PV max cumulée aux jambes ; vitesse = facteur ; portee en m
+    rampe: { seuil: 0.4, vitesse: 0.35, portee: 1 },
+    // fondu et corps en s ; impact = fraction de l'animation d'attaque où le coup part
+    animation: { fondu: 0.2, distanceReduite: 25, marcheRapide: 1.6, corps: 4, impact: 0.45 },
   },
+
+  // flaques de sang au sol : nombre max, durée en s
+  sang: { flaques: 24, duree: 20 },
+
+  // boss toutes les 'intervalle' vagues à partir de 'premiereVague' ; escalade = facteur de durée
+  boss: { premiereVague: 5, intervalle: 5, multiplicateurPv: 12, vitesse: 1.8, degats: 3, escalade: 1.5, points: 500, nom: 'Le Colosse' },
 
   // Niveaux de qualité graphique (choix mémorisé). ombres : 'non' | 'projecteurs' | 'tout'
   qualite: {

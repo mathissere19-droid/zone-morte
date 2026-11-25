@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { nombreZombies, pvZombie, partCoureurs, typeDeplacement } from '../src/regles/vagues.js';
+import { nombreZombies, pvZombie, partCoureurs, typeDeplacement, estVagueBoss, pvBoss } from '../src/regles/vagues.js';
 
 test('nombre de zombies par vague', () => {
   assert.equal(nombreZombies(1), 10);
@@ -26,4 +26,15 @@ test('type de déplacement', () => {
   assert.equal(typeDeplacement(6, () => 0.05), 'course');
   assert.equal(typeDeplacement(6, () => 0.9), 'marche');
   assert.equal(typeDeplacement(13, () => 0.95), 'marcheRapide');
+});
+
+test('vagues de boss : 5, 10, 15…', () => {
+  assert.equal(estVagueBoss(4), false);
+  assert.equal(estVagueBoss(5), true);
+  assert.equal(estVagueBoss(6), false);
+  assert.equal(estVagueBoss(10), true);
+});
+
+test('PV du boss : 12 × un zombie de la vague', () => {
+  assert.equal(pvBoss(950), 11400);
 });
