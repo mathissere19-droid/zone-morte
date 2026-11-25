@@ -35,8 +35,8 @@ try {
   verifier(true, 'le jeu se charge');
 
   const scenarios = await import('./scenarios.mjs').then((m) => m.scenarios).catch(() => []);
-  const filtre = process.env.FUMEE_FILTRE; // ex. FUMEE_FILTRE=conteneur : seulement ces scénarios
-  for (const s of scenarios.filter((s) => !filtre || s.nom.includes(filtre))) {
+  const filtre = process.env.FUMEE_FILTRE; // ex. FUMEE_FILTRE=conteneur (ou « a|b ») : seulement ces scénarios
+  for (const s of scenarios.filter((s) => !filtre || filtre.split('|').some((f) => s.nom.includes(f)))) {
     console.log('- ' + s.nom);
     await s.executer(page, verifier, attendre);
   }

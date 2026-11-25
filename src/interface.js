@@ -37,7 +37,7 @@ export function creerInterface() {
       $('barre-boss').classList.toggle('cache', !b);
       if (!b) return;
       $('barre-boss-nom').textContent = b.nom;
-      $('barre-boss-barre').style.width = Math.max(0, 100 * b.pv / b.pvMax) + '%';
+      $('barre-boss-barre').style.width = Math.min(100, Math.max(0, 100 * b.pv / b.pvMax)) + '%';
     },
     gain(n) {
       const d = document.createElement('div');

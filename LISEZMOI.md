@@ -31,6 +31,13 @@ Les zombies vous **voient** (25 m devant eux, 12 m seulement si vous êtes accro
 
 Cassez le contact (derrière un mur, sur un toit, accroupi dans un coin sombre) : ils vont voir là où ils vous ont perdu et fouillent autour. Mais **la horde finit toujours par revenir** : au bout de 15 s (10 s en Vétéran, 6 s en Cauchemar), ils sentent votre position. Ils savent aussi grimper : rebords des conteneurs et échelles.
 
+## Zombies
+- Les zombies sont de vrais personnages animés : ils se relèvent du sol, marchent, courent, frappent (le coup part quand le bras arrive, on peut l'esquiver en reculant à temps) et s'effondrent en mourant.
+- **Tir à la tête** : un tir mortel à la tête fait sauter la tête.
+- **Tirs dans les jambes** : un zombie qui encaisse assez de dégâts aux jambes (40 % de sa vie) sans mourir tombe et **rampe** : lent, il ne peut plus grimper, mais il mord encore de près.
+- **Le Colosse** : un boss apparaît à la vague 5, puis toutes les 5 vagues (10, 15…). Très résistant (12 fois un zombie de la vague), lent mais il frappe 3 fois plus fort. Sa barre de vie s'affiche en haut de l'écran. Le tuer rapporte 500 points et un bonus.
+- Si les modèles 3D ne se chargent pas, le jeu fonctionne quand même avec des zombies simplifiés.
+
 ## Difficultés
 À choisir sur l'écran d'accueil (un record par niveau) :
 - **Recrue** : zombies plus faibles, plus de points et de munitions, coureurs à partir de la vague 8.

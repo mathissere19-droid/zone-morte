@@ -25,7 +25,8 @@ scenarios.push({
     const r = await page.evaluate(() => ({ n: window.__jeu.zombies.liste.length, v: window.__jeu.partie.vague }));
     verifier(r.n > 0, 'des zombies sont apparus (' + r.n + ')');
     verifier(r.v === 1, 'vague 1 en cours');
-    // les zombies se rapprochent du joueur
+    // les zombies se rapprochent du joueur (une fois sortis du sol)
+    await page.waitForFunction(() => window.__jeu.zombies.liste.some((z) => !z.mort && z.emergence <= 0), null, { timeout: 60000 }).catch(() => {});
     const d = () => page.evaluate(() => {
       const j = window.__jeu.joueur.position;
       const l = window.__jeu.zombies.liste.filter((z) => !z.mort && z.emergence <= 0);
