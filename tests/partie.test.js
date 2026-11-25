@@ -17,13 +17,13 @@ test('la vague 1 démarre après 3 s', () => {
 
 test('plafond de 24 zombies vivants', () => {
   const p = creerPartie();
-  p.vague = 4; majPartie(p, 3.1); // passe en vague 5 : 30 zombies
-  assert.equal(p.restants, 30);
+  p.vague = 4; majPartie(p, 3.1); // passe en vague 5 : 30 zombies + le boss
+  assert.equal(p.restants, 31);
   let n = 0;
   while (peutFaireApparaitre(p)) { enregistrerApparition(p); n++; }
   assert.equal(n, 24);
   assert.equal(p.vivants, 24);
-  assert.equal(p.restants, 6);
+  assert.equal(p.restants, 7);
 });
 
 test('fin de vague puis pause de 10 s', () => {
@@ -75,8 +75,20 @@ test('zombies restants : à faire apparaître + vivants, 0 en pause', async () =
   assert.equal(zombiesRestants(p), 0);
   p.vague = 4; p.chrono = 0;
   majPartie(p, 0.01);
-  assert.equal(zombiesRestants(p), 30);
+  assert.equal(zombiesRestants(p), 31); // vague 5 : 30 + le boss
   enregistrerApparition(p);
   enregistrerMort(p, { tete: false });
-  assert.equal(zombiesRestants(p), 29);
+  assert.equal(zombiesRestants(p), 30);
+});
+
+test('vague de boss : le boss compte dans les zombies restants', () => {
+  const p = creerPartie();
+  p.vague = 4; majPartie(p, 3.1);
+  assert.equal(p.vague, 5);
+  assert.equal(p.restants, 30 + 1);
+  assert.equal(p.bossARestant, true);
+  const q = creerPartie();
+  majPartie(q, 3.1);
+  assert.equal(q.restants, 10);
+  assert.equal(q.bossARestant, false);
 });

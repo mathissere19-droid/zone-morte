@@ -1,11 +1,11 @@
 // Déroulement d'une partie : vagues, pauses, apparitions, statistiques.
 import { CONFIG } from '../config.js';
-import { nombreZombies } from './vagues.js';
+import { nombreZombies, estVagueBoss } from './vagues.js';
 
 export function creerPartie() {
   return {
     vague: 0, phase: 'pause', chrono: CONFIG.vagues.premierePause,
-    restants: 0, vivants: 0, bonusLaches: 0,
+    restants: 0, vivants: 0, bonusLaches: 0, bossARestant: false,
     kills: 0, killsTete: 0, pointsGagnes: 0, temps: 0,
   };
 }
@@ -16,7 +16,9 @@ export function majPartie(p, dt) {
   p.chrono -= dt;
   if (p.chrono > 0) return null;
   p.vague++;
-  p.restants = nombreZombies(p.vague);
+  // vague de boss : le boss s'ajoute aux zombies normaux (et apparaît en premier)
+  p.bossARestant = estVagueBoss(p.vague);
+  p.restants = nombreZombies(p.vague) + (p.bossARestant ? 1 : 0);
   p.bonusLaches = 0;
   p.phase = 'combat';
   p.chrono = 0;

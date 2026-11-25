@@ -1,7 +1,7 @@
 // Zombies : apparence (GLB Mixamo animés, repli en boîtes), IA de déplacement, attaque, mort.
 import * as THREE from 'three';
 import { CONFIG } from './config.js';
-import { typeDeplacement } from './regles/vagues.js';
+import { typeDeplacement, pvBoss } from './regles/vagues.js';
 import { pvZombieActif, difficulteActive } from './regles/difficulte.js';
 import { deplacer } from './regles/collisions.js';
 import { trouverChemin, ligneLibre } from './regles/navigation.js';
@@ -17,6 +17,7 @@ const Z = CONFIG.zombie;
 const E = CONFIG.escalade;
 const PER = CONFIG.perception;
 const ZA = CONFIG.zombie.animation;
+const B = CONFIG.boss;
 const VITESSES = { marche: Z.vitesseMarche, marcheRapide: Z.vitesseMarcheRapide, course: Z.vitesseCourse };
 
 const geo = {
@@ -52,6 +53,14 @@ function construireModele(rng) {
   const touchables = [tronc, tete, brasG, brasD, jambeG, jambeD];
   for (const m of touchables) m.castShadow = true;
   return { g, corps, tete, brasG, brasD, jambeG, jambeD, touchables, feu };
+}
+
+// Boss de repli : boîtes plus grandes et plus sombres
+function creerBossBoites(rng) {
+  const m = creerModeleBoites(rng);
+  m.g.children[0].scale.setScalar(1.3);
+  for (const j of [m.jambeG, m.jambeD]) j.scale.set(1.3, 1, 1.3);
+  return m;
 }
 
 // Modèle de repli (pas de GLB) : boîtes animées par programme. Même interface que modeles-zombies.js.
@@ -103,16 +112,18 @@ export function creerGestionnaireZombies(scene, carte, grille) {
   let image = 0;
   let ombresActives = false;
 
-  function faireApparaitre(point, vague, rng = Math.random) {
-    const type = typeDeplacement(vague, rng, difficulteActive().premiereVagueCoureurs);
-    const m = creerModeleZombie(modeles, { rng, repli: creerModeleBoites });
+  // boss : « Le Colosse » (PV × 12, lent, ne court jamais, coups × 3)
+  function faireApparaitre(point, vague, rng = Math.random, { boss = false } = {}) {
+    const type = boss ? 'marche' : typeDeplacement(vague, rng, difficulteActive().premiereVagueCoureurs);
+    const m = creerModeleZombie(modeles, { boss, rng, repli: boss ? creerBossBoites : creerModeleBoites });
+    const pv = boss ? pvBoss(pvZombieActif(vague)) : pvZombieActif(vague);
     const z = {
       id: compteur++,
       modele: m,
       position: { x: point.x, y: hauteurSol(point.x, point.z), z: point.z },
-      pv: pvZombieActif(vague), pvMax: pvZombieActif(vague),
+      pv, pvMax: pv, boss,
       type,
-      vitesse: VITESSES[type] * (0.9 + rng() * 0.2),
+      vitesse: boss ? B.vitesse : VITESSES[type] * (0.9 + rng() * 0.2),
       chemin: null, iChemin: 0,
       prochainCalcul: (compteur % 10) * (Z.recalculChemin / 10),
       tAttaque: null,   // temps écoulé dans l'attaque en cours (null : pas d'attaque)
@@ -155,7 +166,7 @@ export function creerGestionnaireZombies(scene, carte, grille) {
   }
 
   function tuerTous() {
-    const tues = liste.filter((z) => !z.mort);
+    const tues = liste.filter((z) => !z.mort && !z.boss); // le bonus explosion n'abat pas le boss
     for (const z of tues) { z.mort = true; z.tempsMort = 0; }
     return tues;
   }
@@ -280,7 +291,7 @@ export function creerGestionnaireZombies(scene, carte, grille) {
         }
         const avant = z.tAttaque;
         z.tAttaque += dt;
-        if (momentImpact(avant, z.tAttaque, duree) && dist < portee * 1.3 && memeNiveau) surCoup(CONFIG.joueur.degatsZombie, z);
+        if (momentImpact(avant, z.tAttaque, duree) && dist < portee * 1.3 && memeNiveau) surCoup(CONFIG.joueur.degatsZombie * (z.boss ? B.degats : 1), z);
         if (z.tAttaque >= duree) z.tAttaque = null;
       } else {
         const traque = etat === 'traque';
@@ -295,7 +306,7 @@ export function creerGestionnaireZombies(scene, carte, grille) {
         // un rampeur ne grimpe plus : il attend au pied
         if (lien) {
           if (!z.rampe && Math.hypot(lien.bas.x - z.position.x, lien.bas.z - z.position.z) < 1) { // le pied est souvent dans une case bloquée de la grille
-            commencerEscalade(z, { x: lien.haut.x, y: lien.haut.h, z: lien.haut.z }, lien.duree, jIlot);
+            commencerEscalade(z, { x: lien.haut.x, y: lien.haut.h, z: lien.haut.z }, lien.duree * (z.boss ? B.escalade : 1), jIlot);
             continue;
           }
           but = lien.bas;

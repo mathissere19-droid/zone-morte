@@ -32,6 +32,13 @@ export function creerInterface() {
       // le bord rouge reflète les PV manquants
       $('degats').style.opacity = Math.max(flash, (1 - pv / vieMax) * 0.9);
     },
+    // barre de vie du boss : { nom, pv, pvMax } ou null (cachée)
+    barreBoss(b) {
+      $('barre-boss').classList.toggle('cache', !b);
+      if (!b) return;
+      $('barre-boss-nom').textContent = b.nom;
+      $('barre-boss-barre').style.width = Math.max(0, 100 * b.pv / b.pvMax) + '%';
+    },
     gain(n) {
       const d = document.createElement('div');
       d.textContent = '+' + n;

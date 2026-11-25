@@ -34,6 +34,12 @@ html, body { margin: 0; height: 100%; overflow: hidden; background: #05070c; col
 #annonce { position: absolute; left: 50%; top: 30%; transform: translateX(-50%); font: 900 48px/1 Georgia, serif;
   color: #b01212; text-shadow: 0 0 20px rgba(255,0,0,.4), 2px 2px 0 #000; letter-spacing: 4px; }
 
+/* barre de vie du boss */
+#barre-boss { position: absolute; left: 50%; top: 56px; transform: translateX(-50%); width: min(520px, 70vw); text-align: center; }
+#barre-boss-nom { font: 900 20px/1 Georgia, serif; color: #d8c8b0; letter-spacing: 3px; text-shadow: 2px 2px 0 #000; margin-bottom: 6px; }
+#barre-boss-vie { height: 12px; background: rgba(0,0,0,.6); border: 1px solid #5a1010; }
+#barre-boss-barre { height: 100%; width: 100%; background: linear-gradient(#c01818, #6a0808); transition: width .15s; }
+
 /* ---------- Écrans ---------- */
 .ecran { position: fixed; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px;
   background: radial-gradient(ellipse at center, rgba(20,8,8,.75), rgba(0,0,0,.95)); text-align: center; padding: 16px; }

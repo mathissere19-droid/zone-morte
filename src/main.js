@@ -145,12 +145,13 @@ function toucherZombie(z, degats, { tete = false, zone = tete ? 'tete' : 'corps'
   const mortel = zombies.infliger(z, degats, zone);
   if (mortel) mortVisible(z, { tete });
   // une touche de brûlure non mortelle ne rapporte rien
-  const gain = brulure && !mortel ? 0 : gainCoup({ mortel, tete, couteau }, doubles > 0);
+  const gain = mortel && z.boss ? CONFIG.boss.points * (doubles > 0 ? 2 : 1)
+    : brulure && !mortel ? 0 : gainCoup({ mortel, tete, couteau }, doubles > 0);
   crediter(portefeuille, gain);
   partie.pointsGagnes += gain;
   if (mortel) {
     enregistrerMort(partie, { tete });
-    if (tirerBonus(partie, Math.random)) bonus.lacher(z.position);
+    if (z.boss || tirerBonus(partie, Math.random)) bonus.lacher(z.position); // le boss lâche toujours un bonus
   }
 }
 
@@ -354,7 +355,8 @@ function boucle(dtBrut) {
     delaiApparition -= dt;
     if (delaiApparition <= 0 && peutFaireApparaitre(partie)) {
       const pt = choisirPointApparition(pointsApparitionActifs(), joueur.position, pointVisible, Math.random);
-      zombies.faireApparaitre(pt, partie.vague);
+      zombies.faireApparaitre(pt, partie.vague, Math.random, { boss: partie.bossARestant });
+      partie.bossARestant = false;
       enregistrerApparition(partie);
       delaiApparition = 0.35;
     }
@@ -381,6 +383,8 @@ function boucle(dtBrut) {
       stamina: joueur.stamina, staminaMax: CONFIG.joueur.staminaMax,
       dispersion: armes.dispersion * (joueur.vise ? 0.4 : 1) * (joueur.accroupi ? CONFIG.joueur.accroupi.dispersion : 1), enRechargement: armes.enRechargement,
     });
+    const boss = zombies.liste.find((z) => z.boss && !z.mort);
+    ui.barreBoss(boss ? { nom: CONFIG.boss.nom, pv: boss.pv, pvMax: boss.pvMax } : null);
     if (estMort(joueur.vie)) finDePartie();
   }
   if (jeu.etat === 'partie' && majSurveillancePerf(surveillancePerf, dtBrut, rendu.qualite)) {

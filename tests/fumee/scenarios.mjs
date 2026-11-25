@@ -840,3 +840,33 @@ scenarios.push({
     verifier(n > 0 && n <= 24, '30 morts → ' + n + ' flaques (24 au plus)');
   },
 });
+scenarios.push({
+  nom: 'boss à la vague 5 : Le Colosse',
+  async executer(page, verifier) {
+    await page.evaluate(() => {
+      const j = window.__jeu;
+      j.demarrerPartie('soldat'); j.zombies.vider(); j.joueur.vie.pv = 1e9;
+      j.partie.vague = 4; j.partie.phase = 'pause'; j.partie.chrono = 0.01;
+    });
+    await page.waitForFunction(() => window.__jeu.zombies.liste.some((z) => z.boss), null, { timeout: 30000 });
+    await page.waitForFunction(() => !document.getElementById('barre-boss').classList.contains('cache'), null, { timeout: 10000 }).catch(() => {});
+    const r = await page.evaluate(() => {
+      const j = window.__jeu, b = j.zombies.liste.find((z) => z.boss);
+      return { premier: j.zombies.liste[0] === b, pv: b.pv, vitesse: b.vitesse, barre: !document.getElementById('barre-boss').classList.contains('cache'), texte: document.getElementById('barre-boss').textContent };
+    });
+    verifier(r.premier, 'le boss est la première apparition de la vague 5');
+    verifier(r.pv === 12 * 550 && r.vitesse === 1.8, 'PV 12 × zombie de la vague, 1,8 m/s (' + r.pv + ', ' + r.vitesse + ')');
+    verifier(r.barre && r.texte.includes('Le Colosse'), 'barre de vie « Le Colosse » affichée');
+    const k = await page.evaluate(() => {
+      const j = window.__jeu, b = j.zombies.liste.find((z) => z.boss);
+      const avant = j.portefeuille.points, bonus = j.bonus.liste.length;
+      b.emergence = 0; b.pv = 1;
+      j.toucherZombie(b, 10, {});
+      return { gain: j.portefeuille.points - avant, bonus: j.bonus.liste.length - bonus, tete: b.modele.teteRetiree };
+    });
+    verifier(k.gain === 500, 'boss tué : +500 points (' + k.gain + ')');
+    verifier(k.bonus === 1, 'le boss lâche un bonus');
+    await page.waitForFunction(() => document.getElementById('barre-boss').classList.contains('cache'), null, { timeout: 10000 }).catch(() => {});
+    verifier(await page.evaluate(() => document.getElementById('barre-boss').classList.contains('cache')), 'barre du boss cachée');
+  },
+});
