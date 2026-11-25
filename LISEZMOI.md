@@ -2,6 +2,9 @@
 
 FPS de survie en vagues contre des zombies, dans une base militaire abandonnée, de nuit.
 
+## Jouer en ligne
+**https://mathissere19-droid.github.io/zone-morte/** — rien à installer, dans Chrome ou Edge sur PC (clavier + souris). Le premier chargement télécharge environ 19 Mo.
+
 ## Lancer le jeu
 Double-cliquer sur **Jouer.bat**. Une fenêtre noire (le petit serveur local) s'ouvre : **laissez-la ouverte** pendant que vous jouez. Le jeu s'ouvre dans le navigateur. Pour arrêter : fermez l'onglet puis la fenêtre noire.
 
