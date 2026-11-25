@@ -34,7 +34,8 @@ test('choisirAnimation : priorités', () => {
   assert.equal(choix({ emergence: 1, attaque: true }).nom, 'sortie');
   assert.equal(choix({ escalade: 'monte', attaque: true }).nom, 'attaque');
   assert.equal(choix({ escalade: 'monte', attaque: true }).vitesse, 0.6);
-  assert.equal(choix({ attaque: true, rampe: true }).nom, 'attaque');
+  // un rampeur reste au sol pour mordre (pas d'attaque debout)
+  assert.deepEqual(choix({ attaque: true, rampe: true }), { nom: 'ramper', vitesse: 1 });
 });
 
 test("momentImpact : vrai une seule fois au franchissement", () => {

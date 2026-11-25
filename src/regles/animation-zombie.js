@@ -9,8 +9,9 @@ export function choisirAnimation({ emergence, mort, escalade, attaque, rampe, vi
   if (emergence > 0) return { nom: 'sortie', vitesse: 1 };
   if (escalade === 'monte') return { nom: 'attaque', vitesse: 0.6 };
   if (escalade === 'descend') return { nom: 'course', vitesse: 0 };
+  // un rampeur reste au sol : il mord en rampant (pas d'attaque debout)
+  if (rampe) return { nom: 'ramper', vitesse: attaque || vitesse > 0 ? 1 : 0 };
   if (attaque) return { nom: 'attaque', vitesse: 1 };
-  if (rampe) return { nom: 'ramper', vitesse: vitesse > 0 ? 1 : 0 };
   if (vitesse < 0.05) return { nom: 'attente', vitesse: 1 };
   if (type === 'course') return { nom: 'course', vitesse: 1 };
   if (type === 'marcheRapide') return { nom: 'marche', vitesse: CONFIG.zombie.animation.marcheRapide };
