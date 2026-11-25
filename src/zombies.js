@@ -138,6 +138,7 @@ export function creerGestionnaireZombies(scene, carte, grille) {
     z.suivi = creerSuiviBlocage(z.position);
     for (const t of m.touchables) t.userData.zombie = z;
     m.g.position.set(z.position.x, z.position.y - (m.enterre ? 1.8 : 0), z.position.z);
+    m.g.updateMatrixWorld(true); // touchable dès l'apparition, avant la prochaine image
     m.ombres(ombresActives);
     scene.add(m.g);
     liste.push(z);

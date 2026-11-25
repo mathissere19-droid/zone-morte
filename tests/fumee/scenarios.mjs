@@ -871,3 +871,18 @@ scenarios.push({
     verifier(await page.evaluate(() => document.getElementById('barre-boss').classList.contains('cache')), 'barre du boss cachée');
   },
 });
+scenarios.push({
+  nom: "tir sur un zombie qui vient d'apparaître (sans image rendue)",
+  async executer(page, verifier) {
+    const r = await page.evaluate(() => {
+      const j = window.__jeu;
+      j.demarrerPartie('soldat'); j.partie.chrono = 1e9; j.zombies.vider();
+      j.joueur.placer(-2, 4); j.camera.rotation.set(-0.06, 0, 0);
+      const z = j.zombies.faireApparaitre({ x: -2, z: -2 }, 1);
+      Object.assign(z, { emergence: 0, vitesse: 0, pv: 5000 });
+      j.tirer();
+      return 5000 - z.pv;
+    });
+    verifier(r > 0, 'le tir touche immédiatement (' + r + ')');
+  },
+});
