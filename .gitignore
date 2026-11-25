@@ -1,3 +1,4 @@
 node_modules/
 tests/fumee/capture*.png
 .superpowers/
+assets/mixamo/
