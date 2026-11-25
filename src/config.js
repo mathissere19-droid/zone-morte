@@ -72,7 +72,9 @@ export const CONFIG = {
     // rampeur : seuil = part des PV max cumulée aux jambes ; vitesse = facteur ; portee en m
     rampe: { seuil: 0.4, vitesse: 0.35, portee: 1 },
     // fondu et corps en s ; impact = fraction de l'animation d'attaque où le coup part
-    animation: { fondu: 0.2, distanceReduite: 25, marcheRapide: 1.6, corps: 4, impact: 0.45 },
+    // vitesseClip : facteur propre à un clip Mixamo ; coupeAttaque : part utile du clip d'attaque (le reste est un retour au repos)
+    // emergence : durée de la sortie du sol des modèles animés (s)
+    animation: { fondu: 0.2, distanceReduite: 25, marcheRapide: 1.6, corps: 4, impact: 0.45, vitesseClip: { attaque: 2 }, coupeAttaque: 0.65, emergence: 2 },
   },
 
   // flaques de sang au sol : nombre max, durée en s

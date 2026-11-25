@@ -7,6 +7,7 @@ import { creerSuiviBlocage } from './regles/blocage.js';
 import { creerJoueur, entrees, finImageEntrees } from './joueur.js';
 import { creerGrille, marquerObstacles, ligneLibre } from './regles/navigation.js';
 import { creerGestionnaireZombies } from './zombies.js';
+import { chargerModelesZombies } from './modeles-zombies.js';
 import { creerArmes } from './armes.js';
 import { creerEffets } from './effets.js';
 import { creerBonus, NOMS_BONUS } from './bonus.js';
@@ -88,6 +89,14 @@ carte.surChangement = () => marquerObstacles(grille, carte.navObstacles);
 const joueur = creerJoueur(camera, renderer.domElement);
 joueur.surChute = (d) => blesserJoueur(d, { brut: true });
 const zombies = creerGestionnaireZombies(scene, carte, grille);
+// Modèles animés des zombies (repli en boîtes s'ils manquent) ; ?sansModeles force le repli
+$('btn-jouer').disabled = true;
+const chargementModeles = parametresUrl.has('sansModeles') ? Promise.resolve(null) : chargerModelesZombies();
+chargementModeles.then((m) => {
+  zombies.definirModeles(m);
+  jeu.pret = true;
+  $('btn-jouer').disabled = false;
+});
 const bonus = creerBonus(scene);
 
 let partie, portefeuille, inventaire, doubles = 0, delaiApparition = 0;
@@ -228,13 +237,13 @@ function pointsApparitionActifs() {
 function replacerZombie(z) {
   const pt = choisirPointApparition(pointsApparitionActifs(), joueur.position, pointVisible, Math.random);
   z.position.x = pt.x; z.position.z = pt.z; z.position.y = hauteurSol(pt.x, pt.z);
-  z.emergence = 0.8; z.chemin = null; z.surface = null; z.escalade = null;
+  z.emergence = z.modele.dureeEmergence; z.chemin = null; z.surface = null; z.escalade = null;
   z.suivi = creerSuiviBlocage(z.position);
 }
 
 // ---------- États de jeu ----------
 const jeu = {
-  etat: 'menu', scene, camera, renderer, modeTest, carte, grille, joueur, zombies, bonus, armes, effets,
+  etat: 'menu', pret: false, scene, camera, renderer, modeTest, carte, grille, joueur, zombies, bonus, armes, effets,
   get partie() { return partie; },
   get portefeuille() { return portefeuille; },
   get inventaire() { return inventaire; },

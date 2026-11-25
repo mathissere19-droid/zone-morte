@@ -559,7 +559,8 @@ const joueurEnHauteur = (page, x, z, y) => page.evaluate(([x, z, y]) => {
   j.accelerer(3);
 }, [x, z, y]);
 async function zombieRejoint(page, verifier, yMin, quoi) {
-  const monte = await page.waitForFunction((y) => window.__z.position.y > y, yMin, { timeout: 60000 }).then(() => true, () => false);
+  // rendu logiciel lent : le zombie peut perdre le joueur (ombre) et attendre le flair avant de traverser la carte
+  const monte = await page.waitForFunction((y) => window.__z.position.y > y, yMin, { timeout: 180000 }).then(() => true, () => false);
   const proche = monte && await page.waitForFunction(() => {
     const p = window.__jeu.joueur.position, z = window.__z.position;
     return Math.hypot(p.x - z.x, p.z - z.z) < 2;
@@ -609,5 +610,71 @@ scenarios.push({
     const ok = await page.waitForFunction(() => window.__z.perception.etat === 'traque', null, { timeout: 60000 }).then(() => true, () => false);
     const r = await page.evaluate(() => { window.__jeu.accelerer(1); return { flairs: window.__jeu.zombies.nbFlairs - window.__flairs, derniere: window.__z.perception.derniere }; });
     verifier(ok && r.flairs >= 1 && Math.hypot(r.derniere.x + 16, r.derniere.z + 10) < 1, `retrouvé par flair (${JSON.stringify(r)})`);
+  },
+});
+scenarios.push({
+  nom: 'modèles GLB chargés',
+  async executer(page, verifier) {
+    await page.evaluate(() => { const j = window.__jeu; j.demarrerPartie(); j.joueur.vie.pv = 1e9; j.zombies.vider(); });
+    verifier(await page.evaluate(() => window.__jeu.zombies.modelesCharges === true), 'les GLB des zombies sont chargés');
+    const r = await page.evaluate(() => {
+      const z = window.__jeu.zombies.faireApparaitre({ x: -2, z: -4 }, 1);
+      let peau = false;
+      z.modele.g.traverse((o) => { if (o.isSkinnedMesh) peau = true; });
+      return { peau, zones: [...new Set(z.modele.touchables.map((t) => t.userData.zone))].sort().join(','), lies: z.modele.touchables.every((t) => t.userData.zombie === z) };
+    });
+    verifier(r.peau, 'le zombie apparu est un maillage animé (SkinnedMesh)');
+    verifier(r.zones === 'corps,jambes,tete', 'zones tête, corps, jambes (' + r.zones + ')');
+    verifier(r.lies, 'chaque zone est liée au zombie');
+  },
+});
+scenarios.push({
+  nom: "tir à la tête d'un zombie animé",
+  async executer(page, verifier, attendre) {
+    await page.evaluate(() => {
+      const j = window.__jeu;
+      j.demarrerPartie(); j.joueur.vie.pv = 1e9; j.zombies.vider();
+      j.joueur.placer(-2, 4);
+      window.__cible = j.zombies.faireApparaitre({ x: -2, z: -2 }, 1);
+      Object.assign(window.__cible, { emergence: 0, vitesse: 0, pv: 5000 });
+    });
+    await page.waitForFunction(() => window.__jeu.partie.temps > 0.5, null, { timeout: 20000 });
+    const viser = (zone) => page.evaluate((zone) => {
+      const j = window.__jeu, z = window.__cible;
+      z.modele.g.updateMatrixWorld(true);
+      const boite = z.modele.touchables.find((t) => t.userData.zone === zone);
+      const p = boite.getWorldPosition(new (j.camera.position.constructor)());
+      const avant = z.pv;
+      j.camera.lookAt(p);
+      j.tirer();
+      return avant - z.pv;
+    }, zone);
+    const tete = await viser('tete');
+    await attendre(600);
+    const corps = await viser('corps');
+    verifier(tete > 0 && corps > 0, 'les deux tirs touchent (tête ' + tete + ', corps ' + corps + ')');
+    verifier(tete > corps, 'la tête fait plus de dégâts que le corps');
+  },
+});
+scenarios.push({
+  nom: 'repli sans modèles (?sansModeles=1)',
+  async executer(page, verifier) {
+    const p2 = await page.context().browser().newPage();
+    const erreurs = [];
+    p2.on('console', (m) => { if (m.type() === 'error') erreurs.push(m.text()); });
+    p2.on('pageerror', (e) => erreurs.push(String(e)));
+    await p2.goto(page.url().split('?')[0] + '?test=1&sansModeles=1');
+    await p2.waitForFunction(() => window.__jeu && window.__jeu.pret === true, null, { timeout: 30000 });
+    const r = await p2.evaluate(() => {
+      const j = window.__jeu; j.demarrerPartie(); j.joueur.vie.pv = 1e9;
+      const z = j.zombies.faireApparaitre({ x: -2, z: -4 }, 1);
+      let peau = false;
+      z.modele.g.traverse((o) => { if (o.isSkinnedMesh) peau = true; });
+      return { peau, charges: j.zombies.modelesCharges, n: z.modele.touchables.length };
+    });
+    await p2.waitForFunction(() => window.__jeu.partie.temps > 1, null, { timeout: 20000 });
+    await p2.close();
+    verifier(!r.peau && !r.charges && r.n > 0, 'zombies en boîtes sans GLB');
+    verifier(erreurs.length === 0, 'aucune erreur console en repli (' + erreurs.join(' | ') + ')');
   },
 });
