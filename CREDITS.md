@@ -14,3 +14,5 @@
 - moonless_golf — Poly Haven — CC0 — https://polyhaven.com/a/moonless_golf
 - concrete_wall_004 — Poly Haven — CC0 — https://polyhaven.com/a/concrete_wall_004
 - concrete_wall_006 — Poly Haven — CC0 — https://polyhaven.com/a/concrete_wall_006
+
+- Zombies (Copzombie, zombie2, boss) et leurs animations — Mixamo (Adobe) — utilisés dans le jeu (GLB convertis) ; fichiers FBX bruts non redistribués — https://www.mixamo.com
