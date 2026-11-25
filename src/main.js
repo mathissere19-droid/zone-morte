@@ -38,7 +38,7 @@ try {
   throw e;
 }
 const { renderer, scene, camera } = rendu;
-scene.add(new THREE.HemisphereLight(0x5a6a8a, 0x1a1a1a, 0.7));
+scene.add(new THREE.HemisphereLight(0x5a6a8a, 0x2a2a2a, CONFIG.rendu.ambiance));
 const LUM = CONFIG.rendu.lumieres;
 const lune = new THREE.DirectionalLight(LUM.lune.couleur, LUM.lune.intensite);
 lune.position.set(-20, 40, 10);

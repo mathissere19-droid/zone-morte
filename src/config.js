@@ -93,13 +93,14 @@ export const CONFIG = {
 
   rendu: {
     brouillard: { couleur: 0x0b0f1a, densite: 0.028 },
-    exposition: 1.1, intensiteEnvironnement: 0.35, intensiteFond: 0.25,
-    bloom: { force: 0.6, rayon: 0.4, seuil: 0.85 },
+    // ambiance : lumière d'ambiance (ciel/sol) ; relevées le 25/11 : « on ne voit rien »
+    exposition: 1.35, intensiteEnvironnement: 0.6, intensiteFond: 0.3, ambiance: 1.1,
+    bloom: { force: 0.35, rayon: 0.4, seuil: 0.95 }, // halo réduit : les lampes éblouissaient
     finition: { grain: 0.06, vignette: 0.35, aberration: 0.0015, froid: [0.92, 1.0, 1.08] },
     lumieres: {
-      projecteur: { couleur: 0xdfe8ff, intensite: 150, portee: 35, angle: 0.6, penombre: 0.5, ombre: 1024 },
-      gyrophare: { couleur: 0xff2020, intensite: 80, portee: 30, toursParSeconde: 2 },
-      lune: { couleur: 0x8fa6d8, intensite: 0.8, ombre: 2048 },
+      projecteur: { couleur: 0xdfe8ff, intensite: 90, portee: 35, angle: 0.6, penombre: 0.5, ombre: 1024 },
+      gyrophare: { couleur: 0xff2020, intensite: 60, portee: 30, toursParSeconde: 2 },
+      lune: { couleur: 0x8fa6d8, intensite: 1.4, ombre: 2048 },
       lampe: { couleur: 0xfff1d6, intensite: 40, portee: 25, angle: 0.45, penombre: 0.6 },
     },
     effets: { trousMax: 64, tachesParZombie: 6, particulesMax: 500 },
